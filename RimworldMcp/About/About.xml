@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>RimWorld MCP Bridge</name>
+  <author>Hermes Agent</author>
+  <supportedVersions>
+    <li>1.5</li>
+    <li>1.6</li>
+  </supportedVersions>
+  <description>Exposes a local HTTP API for AI agents to read and control your RimWorld colony. Requires Harmony.
+  
+Full colony control: list pawns, manage skills/traits/health, spawn items, trigger events, manage research, issue bills, and more.
+
+Connect via the Python MCP server at localhost:8765.</description>
+  <packageId>hermes.rimworld-mcp-bridge</packageId>
+  <url>https://github.com/bayarddevries</url>
+  <modDependencies>
+    <li>
+      <packageId>rimworld.rimworld.main</packageId>
+      <displayName>RimWorld</displayName>
+      <steamWorkshopUrl>steam://url/SteamWorkshopPage/294100</steamWorkshopUrl>
+    </li>
+  </modDependencies>
+</ModMetaData>

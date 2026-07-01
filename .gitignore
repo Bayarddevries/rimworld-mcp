@@ -1,0 +1,22 @@
+# Build output
+RimworldMcp/build/
+RimworldMcp/Lib/
+
+# Python
+**/__pycache__/
+**/*.egg-info/
+.venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

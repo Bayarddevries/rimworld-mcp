@@ -1,0 +1,23 @@
+# Hermes MCP Configuration for RimWorld MCP Bridge
+#
+# Add this to your ~/.hermes/config.yaml under the 'mcp' section
+# to auto-start the RimWorld MCP bridge when Hermes launches.
+# The MCP server will connect to the RimWorld mod's HTTP API
+# when RimWorld is running with the mod installed.
+#
+# Example:
+#   mcp:
+#     servers:
+#       rimworld: !<mcp>
+#         command: python3
+#         args: ["-m", "rimworld_mcp.server"]
+#         env:
+#           RIMWORLD_API_BASE: "http://localhost:8765"
+
+mcp:
+  servers:
+    rimworld:
+      command: /home/bayarddevries/projects/rimworld-mcp/mcp-server/.venv/bin/python3
+      args: ["-m", "rimworld_mcp.server"]
+      env:
+        RIMWORLD_API_BASE: "http://localhost:8765"
