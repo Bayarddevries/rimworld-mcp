@@ -54,6 +54,8 @@ namespace RimworldMcp
             _getRoutes["/api/events/feed"] = EventFeedHandler.GetFeed;
             _getRoutes["/api/events/history"] = EventFeedHandler.GetHistory;
             _getRoutes["/api/goals"] = GoalHandler.ListGoals;
+            _getRoutes["/api/colony/paused"] = TimeHandler.GetPauseState;
+            _getRoutes["/api/colony/autopause"] = AutoPauseManager.GetConfig;
 
             // POST routes
             _postRoutes["/api/pawns/skill"] = PawnsHandler.SetSkill;
@@ -75,12 +77,15 @@ namespace RimworldMcp
             _postRoutes["/api/goals/set"] = GoalHandler.SetGoal;
             _postRoutes["/api/goals/remove"] = GoalHandler.RemoveGoal;
             _postRoutes["/api/batch"] = BatchHandler.Execute;
+            _postRoutes["/api/colony/time"] = TimeHandler.SetTime;
+            _postRoutes["/api/colony/autopause"] = AutoPauseManager.SetConfig;
         }
 
         public void Start()
         {
             _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://localhost:{_port}/");
+            _listener.Prefixes.Add("http://localhost:8765/");
+            _listener.Prefixes.Add("http://127.0.0.1:8765/");
             _listener.Start();
             _running = true;
 
@@ -133,6 +138,18 @@ namespace RimworldMcp
 
                     EventFeedHandler.StreamSSE(response.OutputStream);
                     return; // StreamSSE loops until disconnect; don't close here
+                }
+
+                // Dashboard — serve HTML
+                if (request.HttpMethod == "GET" && path == "/dashboard")
+                {
+                    string html = DashboardHandler.ServeDashboard(request);
+                    byte[] htmlBuffer = Encoding.UTF8.GetBytes(html);
+                    response.ContentType = "text/html; charset=utf-8";
+                    response.ContentLength64 = htmlBuffer.Length;
+                    response.Headers["Access-Control-Allow-Origin"] = "*";
+                    response.OutputStream.Write(htmlBuffer, 0, htmlBuffer.Length);
+                    return;
                 }
 
                 string result;

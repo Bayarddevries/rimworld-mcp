@@ -55,6 +55,11 @@ namespace RimworldMcp
             string icon = severity == "critical" ? "[!]" : severity == "warning" ? "[*]" : "[i]";
             ChatManager.AddMessage("System", $"{icon} {description}");
 
+            // Check auto-pause for critical events
+            bool paused = AutoPauseManager.CheckAndPause(type, severity);
+            if (paused)
+                ChatManager.AddMessage("System", "[!] Game auto-paused — critical event detected");
+
             Log.Message($"[RimWorldMcp] Event: [{severity}] {description}");
         }
 

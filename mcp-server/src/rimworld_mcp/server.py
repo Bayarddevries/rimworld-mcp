@@ -335,6 +335,57 @@ async def list_tools() -> list[types.Tool]:
                 "required": ["calls"],
             },
         ),
+
+        # Time Control
+        types.Tool(
+            name="rimworld_pause",
+            description="Pause the game immediately.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="rimworld_resume",
+            description="Resume the game at normal speed.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="rimworld_set_speed",
+            description="Set game speed: pause, play (1x), fast (2x), superfast (3x), ultrafast (4x).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "speed": {
+                        "type": "string",
+                        "description": "Speed: 'pause', 'play', 'fast', 'superfast', 'ultrafast'",
+                        "enum": ["pause", "play", "fast", "superfast", "ultrafast"],
+                    },
+                },
+                "required": ["speed"],
+            },
+        ),
+        types.Tool(
+            name="rimworld_get_time",
+            description="Get current pause state and game speed.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="rimworld_autopause_get",
+            description="Check if auto-pause on critical events is enabled.",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        types.Tool(
+            name="rimworld_autopause_set",
+            description="Enable or disable auto-pause on critical events (raids, deaths, etc.).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "true to enable auto-pause, false to disable",
+                    },
+                },
+                "required": ["enabled"],
+            },
+        ),
     ]
 
 
@@ -442,6 +493,23 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             # Batch
             case "rimworld_batch":
                 return _call("POST", "batch", arguments)
+
+            # Time Control
+            case "rimworld_pause":
+                return _call("POST", "colony/time", {"action": "pause"})
+            case "rimworld_resume":
+                return _call("POST", "colony/time", {"action": "play"})
+            case "rimworld_set_speed":
+                speed = arguments.get("speed", "normal")
+                return _call("POST", "colony/time", {"action": speed})
+            case "rimworld_get_time":
+                return _call("GET", "colony/paused")
+
+            # Auto-pause
+            case "rimworld_autopause_get":
+                return _call("GET", "colony/autopause")
+            case "rimworld_autopause_set":
+                return _call("POST", "colony/autopause", arguments)
 
             case _:
                 return [types.TextContent(type="text", text=f"Unknown tool: {name}")]

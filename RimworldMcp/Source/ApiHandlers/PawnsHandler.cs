@@ -338,6 +338,9 @@ namespace RimworldMcp
             fields.Add($"\"age\":{pawn.ageTracker?.AgeBiologicalYears ?? 0}");
             fields.Add($"\"kind\":{HttpServer.ToJsonString(pawn.kindDef?.defName ?? "Unknown")}");
 
+            // Drafted status
+            fields.Add($"\"drafted\":{(pawn.drafter?.Drafted == true ? "true" : "false")}");
+
             // Health
             if (pawn.health != null)
             {
