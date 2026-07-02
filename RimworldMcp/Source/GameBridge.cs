@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using RimWorld;
 using Verse;
 
 namespace RimworldMcp
@@ -113,6 +114,22 @@ namespace RimworldMcp
                     return pawn;
             }
             return null;
+        }
+
+        /// <summary>
+        /// Get all tamed animals (not colony mechs — API removed in 1.6).
+        /// </summary>
+        public static List<Pawn> GetTamedAnimals()
+        {
+            var animals = new List<Pawn>();
+            if (!IsGameReady()) return animals;
+
+            foreach (var pawn in Find.CurrentMap.mapPawns.AllPawns)
+            {
+                if (pawn.RaceProps?.Animal == true && pawn.Faction == Faction.OfPlayer)
+                    animals.Add(pawn);
+            }
+            return animals;
         }
     }
 }

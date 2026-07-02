@@ -48,7 +48,7 @@ namespace RimworldMcp
 
             int colonists = map.mapPawns.FreeColonistsCount;
             int prisoners = map.mapPawns.PrisonersOfColonyCount;
-            int animals = map.mapPawns.SpawnedColonyMechs?.Count() ?? 0;
+            int animals = GameBridge.GetTamedAnimals().Count;
 
             string weather = map.weatherManager?.curWeather?.label ?? "Unknown";
             string season = GenLocalDate.Season(map).ToString();

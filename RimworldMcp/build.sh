@@ -83,7 +83,7 @@ docker run --rm \
     -v "$OUTPUT_DIR:/output" \
     -v "$HARMONY_DIR:/harmony:ro" \
     -v "$SCRIPT_DIR/compile_inside.sh:/build/compile_inside.sh:ro" \
-    -v "/home/bayarddevries/Games/RimWorld/RimWorld/RimWorldWin64_Data/Managed:/game_assemblies:ro" \
+    -v "/mnt/c/Program Files (x86)/Steam/steamapps/common/RimWorld/RimWorldWin64_Data/Managed:/game_assemblies:ro" \
     --entrypoint "" \
     $MONO_IMAGE \
     bash /build/compile_inside.sh

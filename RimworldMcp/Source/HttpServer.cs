@@ -84,8 +84,10 @@ namespace RimworldMcp
         public void Start()
         {
             _listener = new HttpListener();
+            // Bind to all interfaces so Tailscale and LAN IPs can reach the dashboard
+            _listener.Prefixes.Add("http://*:8765/");
+            // Also keep localhost for clients on the same machine
             _listener.Prefixes.Add("http://localhost:8765/");
-            _listener.Prefixes.Add("http://127.0.0.1:8765/");
             _listener.Start();
             _running = true;
 
