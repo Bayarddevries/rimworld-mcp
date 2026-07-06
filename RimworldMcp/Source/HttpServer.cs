@@ -173,7 +173,15 @@ namespace RimworldMcp
 
                 if (request.HttpMethod == "GET")
                 {
-                    result = HandleRoute(_getRoutes, path, request);
+                    // Health check — doesn't need game thread, handle directly
+                    if (path == "/api/health")
+                    {
+                        result = HealthHandler.Check(request);
+                    }
+                    else
+                    {
+                        result = HandleRoute(_getRoutes, path, request);
+                    }
                 }
                 else if (request.HttpMethod == "POST")
                 {
