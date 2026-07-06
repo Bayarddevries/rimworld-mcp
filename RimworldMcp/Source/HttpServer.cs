@@ -41,6 +41,9 @@ namespace RimworldMcp
             _getRoutes["/api/pawns/"] = PawnsHandler.GetById;
             _getRoutes["/api/colony/resources"] = ColonyHandler.Resources;
             _getRoutes["/api/colony/overview"] = ColonyHandler.Overview;
+            _getRoutes["/api/colony/paused"] = TimeHandler.GetPauseState;
+            _getRoutes["/api/colony/autopause"] = AutoPauseManager.GetConfig;
+            _getRoutes["/api/colony/workgrid"] = WorkGridHandler.Handle;
             _getRoutes["/api/research"] = ResearchHandler.List;
             _getRoutes["/api/map"] = MapHandler.Get;
             _getRoutes["/api/map/bills"] = BillsHandler.List;
@@ -54,8 +57,6 @@ namespace RimworldMcp
             _getRoutes["/api/events/feed"] = EventFeedHandler.GetFeed;
             _getRoutes["/api/events/history"] = EventFeedHandler.GetHistory;
             _getRoutes["/api/goals"] = GoalHandler.ListGoals;
-            _getRoutes["/api/colony/paused"] = TimeHandler.GetPauseState;
-            _getRoutes["/api/colony/autopause"] = AutoPauseManager.GetConfig;
             _getRoutes["/api/prisoners"] = PrisonersHandler.List;
             _getRoutes["/api/prisoners/"] = PrisonersHandler.Detail;
             _getRoutes["/api/zones"] = ZonesHandler.List;
@@ -80,6 +81,8 @@ namespace RimworldMcp
             _postRoutes["/api/colony/stockpile"] = ColonyHandler.AddResources;
             _postRoutes["/api/colony/forbid"] = ColonyHandler.ForbidItem;
             _postRoutes["/api/colony/command"] = ColonyHandler.IssueCommand;
+            _postRoutes["/api/colony/time"] = TimeHandler.SetTime;
+            _postRoutes["/api/colony/autopause"] = AutoPauseManager.SetConfig;
             _postRoutes["/api/save"] = SaveHandler.Save;
             _postRoutes["/api/map/bills/add"] = BillsHandler.AddBill;
             _postRoutes["/api/map/bills/remove"] = BillsHandler.RemoveBill;
@@ -89,8 +92,6 @@ namespace RimworldMcp
             _postRoutes["/api/goals/set"] = GoalHandler.SetGoal;
             _postRoutes["/api/goals/remove"] = GoalHandler.RemoveGoal;
             _postRoutes["/api/batch"] = BatchHandler.Execute;
-            _postRoutes["/api/colony/time"] = TimeHandler.SetTime;
-            _postRoutes["/api/colony/autopause"] = AutoPauseManager.SetConfig;
             _postRoutes["/api/prisoners/action"] = PrisonersHandler.Action;
             _postRoutes["/api/prisoners/mode"] = PrisonersHandler.SetMode;
             _postRoutes["/api/pawns/command"] = CommandHandler.Execute;
