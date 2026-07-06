@@ -57,6 +57,7 @@ namespace RimworldMcp
             _getRoutes["/api/colony/paused"] = TimeHandler.GetPauseState;
             _getRoutes["/api/colony/autopause"] = AutoPauseManager.GetConfig;
             _getRoutes["/api/prisoners"] = PrisonersHandler.List;
+            _getRoutes["/api/prisoners/"] = PrisonersHandler.Detail;
             _getRoutes["/api/zones"] = ZonesHandler.List;
             _getRoutes["/api/alerts"] = AlertsHandler.List;
 
@@ -91,6 +92,7 @@ namespace RimworldMcp
             _postRoutes["/api/colony/time"] = TimeHandler.SetTime;
             _postRoutes["/api/colony/autopause"] = AutoPauseManager.SetConfig;
             _postRoutes["/api/prisoners/action"] = PrisonersHandler.Action;
+            _postRoutes["/api/prisoners/mode"] = PrisonersHandler.SetMode;
             _postRoutes["/api/pawns/command"] = CommandHandler.Execute;
         }
 
