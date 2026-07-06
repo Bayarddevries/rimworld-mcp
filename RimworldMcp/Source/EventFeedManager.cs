@@ -216,28 +216,39 @@ namespace RimworldMcp
         /// Check AlertsReadout for alerts that should trigger auto-pause.
         /// Returns alerts with Critical or High priority.
         /// </summary>
+        private static object _cachedAlertsReadout = null;
+        private static Type _alertsReadoutType = null;
+
         public static List<(string Type, string Label)> CheckAlertsForAutoPause()
         {
             var result = new List<(string Type, string Label)>();
             try
             {
-                var readoutType = typeof(AlertsReadout);
-                var readout = Activator.CreateInstance(readoutType);
-                if (readout == null) return result;
+                // Guard: only check when map is fully loaded and game has had time to initialize
+                if (Find.CurrentMap == null) return result;
+                if (Find.TickManager.TicksGame < 3000) return result; // ~50 seconds grace period
+
+                if (_alertsReadoutType == null)
+                    _alertsReadoutType = typeof(AlertsReadout);
+
+                if (_cachedAlertsReadout == null)
+                    _cachedAlertsReadout = Activator.CreateInstance(_alertsReadoutType);
+
+                if (_cachedAlertsReadout == null) return result;
 
                 // Refresh alerts
-                var updateMethod = readoutType.GetMethod("AlertsReadoutUpdate",
+                var updateMethod = _alertsReadoutType.GetMethod("AlertsReadoutUpdate",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic |
                     System.Reflection.BindingFlags.Public);
-                updateMethod?.Invoke(readout, null);
+                updateMethod?.Invoke(_cachedAlertsReadout, null);
 
                 // Get current alerts
-                var prop = readoutType.GetProperty("CurrentAlerts",
+                var prop = _alertsReadoutType.GetProperty("CurrentAlerts",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public |
                     System.Reflection.BindingFlags.NonPublic);
                 if (prop == null) return result;
 
-                var alertList = prop.GetValue(readout) as System.Collections.IList;
+                var alertList = prop.GetValue(_cachedAlertsReadout) as System.Collections.IList;
                 if (alertList == null || alertList.Count == 0) return result;
 
                 foreach (var obj in alertList)
