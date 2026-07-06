@@ -12,9 +12,11 @@ namespace RimworldMcp
     /// Animal management endpoints.
     ///
     /// GET  /api/animals          — list all tamed animals
+    /// GET  /api/animals/wild     — list all wild animals on the map
     /// GET  /api/animals/{id}     — animal detail with training
     /// POST /api/animals/train    — apply a training session
     /// POST /api/animals/slaughter — slaughter an animal
+    /// POST /api/animals/hunt     — hunt a wild animal
     /// </summary>
     public static class AnimalsHandler
     {
@@ -32,6 +34,99 @@ namespace RimworldMcp
             }
 
             return HttpServer.JsonSuccess(HttpServer.BuildJsonArray(list.ToArray()));
+        }
+
+        public static string Wildlife(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            var wild = new List<string>();
+            var playerFaction = Faction.OfPlayer;
+
+            foreach (var pawn in Find.CurrentMap.mapPawns.AllPawns)
+            {
+                if (pawn.RaceProps?.Animal != true) continue;
+                if (pawn.Faction == playerFaction) continue; // skip tamed
+                if (pawn.RaceProps.IsMechanoid) continue;
+
+                float health = pawn.health?.summaryHealth?.SummaryHealthPercent ?? 0;
+
+                // Danger assessment
+                float manhunterChance = 0;
+                float manhunterOnDamage = 0;
+                try { manhunterChance = pawn.RaceProps.manhunterOnTameFailChance; } catch { }
+                try { manhunterOnDamage = pawn.RaceProps.manhunterOnDamageChance; } catch { }
+
+                float wildness = 1;
+                try { wildness = pawn.GetStatValue(StatDefOf.Wildness); } catch { }
+
+                bool canTame = false;
+                try { canTame = pawn.RaceProps.trainability != null; } catch { }
+
+                // Determine threat level
+                string threat = "safe";
+                float combatPower = pawn.kindDef?.combatPower ?? 0;
+                if (combatPower >= 1.5f) threat = "deadly";
+                else if (combatPower >= 0.8f) threat = "dangerous";
+                else if (manhunterChance > 0.05f || manhunterOnDamage > 0.05f) threat = "volatile";
+
+                wild.Add("{" +
+                    "\"id\":" + pawn.thingIDNumber + "," +
+                    "\"name\":" + HttpServer.ToJsonString(pawn.LabelCap) + "," +
+                    "\"kind\":" + HttpServer.ToJsonString(pawn.kindDef?.label ?? pawn.kindDef?.defName ?? "Animal") + "," +
+                    "\"gender\":" + HttpServer.ToJsonString(pawn.gender.ToString()) + "," +
+                    "\"health\":" + health.ToString("F2") + "," +
+                    "\"wildness\":" + wildness.ToString("F2") + "," +
+                    "\"trainable\":" + (canTame ? "true" : "false") + "," +
+                    "\"threat\":" + HttpServer.ToJsonString(threat) + "," +
+                    "\"manhunterChance\":" + manhunterChance.ToString("F2") + "," +
+                    "\"combatPower\":" + combatPower.ToString("F2") + "," +
+                    "\"bodySize\":" + pawn.BodySize.ToString("F1") + "," +
+                    "\"herd\":" + HttpServer.ToJsonString(pawn.kindDef?.defName ?? "Unknown") +
+                    "}");
+            }
+
+            return HttpServer.JsonSuccess(HttpServer.BuildJsonArray(wild.ToArray()));
+        }
+
+        public static string Hunt(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+            string identifier = GetValue(data, "animal");
+
+            if (identifier == null)
+                return HttpServer.JsonError("Missing field: animal");
+
+            var animal = Find.CurrentMap.mapPawns.AllPawns
+                .FirstOrDefault(p => p.RaceProps?.Animal == true &&
+                    (p.thingIDNumber.ToString() == identifier ||
+                     p.LabelCap.ToLower().Contains(identifier.ToLower())));
+
+            if (animal == null)
+                return HttpServer.JsonError($"Animal not found: {identifier}");
+
+            string name = animal.LabelCap;
+
+            // Mark as hunted — draft a random colonist and assign hunt job
+            var hunters = GameBridge.GetAllColonists()
+                .Where(p => p.health?.summaryHealth?.SummaryHealthPercent > 0.5f)
+                .ToList();
+
+            if (hunters.Count == 0)
+                return HttpServer.JsonError("No healthy colonists to hunt");
+
+            var hunter = hunters[new Random().Next(hunters.Count)];
+
+            var job = JobMaker.MakeJob(JobDefOf.Hunt, animal);
+            hunter.jobs.StartJob(job, Verse.AI.JobCondition.InterruptForced);
+
+            string msg = hunter.Name?.ToStringShort + " is hunting " + name;
+            return HttpServer.JsonSuccess("{\"message\":" + HttpServer.ToJsonString(msg) + "}");
         }
 
         public static string Detail(HttpListenerRequest req)

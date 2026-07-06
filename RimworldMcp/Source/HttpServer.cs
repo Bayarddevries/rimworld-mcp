@@ -62,6 +62,7 @@ namespace RimworldMcp
             _getRoutes["/api/zones"] = ZonesHandler.List;
             _getRoutes["/api/alerts"] = AlertsHandler.List;
             _getRoutes["/api/animals"] = AnimalsHandler.List;
+            _getRoutes["/api/animals/wild"] = AnimalsHandler.Wildlife;
             _getRoutes["/api/animals/"] = AnimalsHandler.Detail;
             _getRoutes["/api/factions"] = FactionsHandler.List;
 
@@ -100,6 +101,7 @@ namespace RimworldMcp
             _postRoutes["/api/pawns/command"] = CommandHandler.Execute;
             _postRoutes["/api/animals/train"] = AnimalsHandler.Train;
             _postRoutes["/api/animals/slaughter"] = AnimalsHandler.Slaughter;
+            _postRoutes["/api/animals/hunt"] = AnimalsHandler.Hunt;
             _postRoutes["/api/factions/gift"] = FactionsHandler.Gift;
         }
 
