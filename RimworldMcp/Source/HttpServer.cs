@@ -61,6 +61,9 @@ namespace RimworldMcp
             _getRoutes["/api/prisoners/"] = PrisonersHandler.Detail;
             _getRoutes["/api/zones"] = ZonesHandler.List;
             _getRoutes["/api/alerts"] = AlertsHandler.List;
+            _getRoutes["/api/animals"] = AnimalsHandler.List;
+            _getRoutes["/api/animals/"] = AnimalsHandler.Detail;
+            _getRoutes["/api/factions"] = FactionsHandler.List;
 
             // POST routes
             _postRoutes["/api/pawns/skill"] = PawnsHandler.SetSkill;
@@ -95,6 +98,9 @@ namespace RimworldMcp
             _postRoutes["/api/prisoners/action"] = PrisonersHandler.Action;
             _postRoutes["/api/prisoners/mode"] = PrisonersHandler.SetMode;
             _postRoutes["/api/pawns/command"] = CommandHandler.Execute;
+            _postRoutes["/api/animals/train"] = AnimalsHandler.Train;
+            _postRoutes["/api/animals/slaughter"] = AnimalsHandler.Slaughter;
+            _postRoutes["/api/factions/gift"] = FactionsHandler.Gift;
         }
 
         public void Start()
