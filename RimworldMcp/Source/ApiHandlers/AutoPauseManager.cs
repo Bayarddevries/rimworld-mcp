@@ -42,7 +42,6 @@ namespace RimworldMcp
         {
             if (!IsEnabled()) return false;
             if (severity != "critical") return false;
-            if (!CriticalEventTypes.Contains(eventType)) return false;
 
             try
             {
