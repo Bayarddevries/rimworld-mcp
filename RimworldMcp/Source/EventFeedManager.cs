@@ -22,6 +22,8 @@ namespace RimworldMcp
         private static float _lastFoodCount;
         private static int _lastResearchCompleted;
         private static int _lastLetterCount;
+        private static readonly Dictionary<string, (float resistance, float recruitProgress)> _lastPrisonerStates =
+            new Dictionary<string, (float resistance, float recruitProgress)>();
         private static readonly HashSet<string> _seenAutoPauseAlerts = new HashSet<string>();
 
         public static void Init()
@@ -163,6 +165,60 @@ namespace RimworldMcp
                                 RecordEvent(defName, label, severity);
                             }
                             _lastLetterCount = letters.Count;
+                        }
+                    }
+                }
+                catch { }
+
+                // Track prisoner recruitment progress
+                try
+                {
+                    foreach (var pawn in Find.CurrentMap.mapPawns.AllPawns)
+                    {
+                        if (pawn.guest == null || !pawn.guest.IsPrisoner || pawn.guest.HostFaction != Faction.OfPlayer)
+                            continue;
+                        string id = pawn.GetUniqueLoadID();
+                        float resist = pawn.guest.resistance;
+                        float recruitPct = 0;
+                        try
+                        {
+                            var rpField = typeof(Pawn_GuestTracker).GetField("recruitProgress",
+                                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                            if (rpField != null)
+                            {
+                                object rpVal = rpField.GetValue(pawn.guest);
+                                recruitPct = Convert.ToSingle(rpVal);
+                            }
+                        }
+                        catch { }
+
+                        if (_lastPrisonerStates.TryGetValue(id, out var last))
+                        {
+                            // Resistance dropped (someone's been working them)
+                            if (resist < last.resistance - 0.5f)
+                                RecordEvent("prisoner_resistance", $"{pawn.Name.ToStringShort}: resistance {last.resistance:F1}→{resist:F1}", "info");
+                            // Recruit progress increased
+                            if (recruitPct > last.recruitProgress + 0.05f)
+                                RecordEvent("prisoner_recruit_progress", $"{pawn.Name.ToStringShort}: recruiting! ({recruitPct*100f:F0}%)", "info");
+                        }
+                        _lastPrisonerStates[id] = (resist, recruitPct);
+                    }
+
+                    // Remove prisoners no longer present (recruited, released, or died)
+                    var activeIds = new HashSet<string>();
+                    foreach (var pawn in Find.CurrentMap.mapPawns.AllPawns)
+                    {
+                        if (pawn.guest != null && pawn.guest.IsPrisoner && pawn.guest.HostFaction == Faction.OfPlayer)
+                            activeIds.Add(pawn.GetUniqueLoadID());
+                    }
+                    // Check for prisoners that disappeared since last tick
+                    foreach (var id in _lastPrisonerStates.Keys.ToList())
+                    {
+                        if (!activeIds.Contains(id))
+                        {
+                            // Try to find name from our stored state
+                            RecordEvent("prisoner_gone", $"Prisoner no longer in custody (recruited/released/executed)", "info");
+                            _lastPrisonerStates.Remove(id);
                         }
                     }
                 }
