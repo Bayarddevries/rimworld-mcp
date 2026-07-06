@@ -156,7 +156,7 @@ namespace RimworldMcp
                                 string defName = let.def?.defName ?? "letter";
                                 string label = let.Label.ToString();
                                 string severity = "info";
-                                if (defName.Contains("Death") || defName.Contains("Attack") || defName.Contains("Raid"))
+                                if (defName.Contains("Death") || defName.Contains("Attack") || defName.Contains("Raid") || defName.Contains("Threat"))
                                     severity = "critical";
                                 else if (defName.Contains("Threat") || defName.Contains("Danger"))
                                     severity = "warning";
