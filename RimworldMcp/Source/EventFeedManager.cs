@@ -22,6 +22,7 @@ namespace RimworldMcp
         private static float _lastFoodCount;
         private static int _lastResearchCompleted;
         private static int _lastLetterCount;
+        private static readonly HashSet<string> _seenAutoPauseAlerts = new HashSet<string>();
 
         public static void Init()
         {
@@ -166,6 +167,25 @@ namespace RimworldMcp
                     }
                 }
                 catch { }
+
+                // Check AlertsReadout for urgent alerts (starving, mental break, etc.)
+                try
+                {
+                    var alerts = CheckAlertsForAutoPause();
+                    // Clear seen set of alerts that are no longer active
+                    var activeLabels = new HashSet<string>(alerts.Select(a => a.Label));
+                    _seenAutoPauseAlerts.RemoveWhere(s => !activeLabels.Contains(s));
+                    // Only trigger for NEW critical alerts
+                    foreach (var alert in alerts)
+                    {
+                        if (!_seenAutoPauseAlerts.Contains(alert.Label))
+                        {
+                            _seenAutoPauseAlerts.Add(alert.Label);
+                            RecordEvent($"alert_{alert.Type.Replace(' ', '_')}", alert.Label, "critical");
+                        }
+                    }
+                }
+                catch { }
             }
             catch (Exception ex)
             {
@@ -190,6 +210,55 @@ namespace RimworldMcp
                     "}");
             }
             return "[" + string.Join(",", items) + "]";
+        }
+
+        /// <summary>
+        /// Check AlertsReadout for alerts that should trigger auto-pause.
+        /// Returns alerts with Critical or High priority.
+        /// </summary>
+        public static List<(string Type, string Label)> CheckAlertsForAutoPause()
+        {
+            var result = new List<(string Type, string Label)>();
+            try
+            {
+                var readoutType = typeof(AlertsReadout);
+                var readout = Activator.CreateInstance(readoutType);
+                if (readout == null) return result;
+
+                // Refresh alerts
+                var updateMethod = readoutType.GetMethod("AlertsReadoutUpdate",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic |
+                    System.Reflection.BindingFlags.Public);
+                updateMethod?.Invoke(readout, null);
+
+                // Get current alerts
+                var prop = readoutType.GetProperty("CurrentAlerts",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.NonPublic);
+                if (prop == null) return result;
+
+                var alertList = prop.GetValue(readout) as System.Collections.IList;
+                if (alertList == null || alertList.Count == 0) return result;
+
+                foreach (var obj in alertList)
+                {
+                    if (obj == null) continue;
+                    var alert = obj as Alert;
+                    if (alert == null) continue;
+
+                    try
+                    {
+                        var priority = alert.Priority;
+                        if (priority == AlertPriority.Critical || priority == AlertPriority.High)
+                        {
+                            result.Add((alert.Label, alert.Label));
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+            return result;
         }
     }
 

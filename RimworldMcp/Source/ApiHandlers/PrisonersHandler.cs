@@ -124,7 +124,7 @@ namespace RimworldMcp
                     skills.Add(HttpServer.BuildJsonObject(
                         ("label", HttpServer.ToJsonString(s.def?.label ?? "?")),
                         ("level", s.Level.ToString()),
-                        ("passion", s.passion.ToString())
+                        ("passion", HttpServer.ToJsonString(s.passion.ToString()))
                     ));
                 }
             }
