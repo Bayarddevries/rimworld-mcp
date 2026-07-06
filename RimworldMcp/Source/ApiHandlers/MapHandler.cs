@@ -38,9 +38,9 @@ namespace RimworldMcp
         {
             bool ready = GameBridge.IsGameReady();
             return HttpServer.JsonSuccess(HttpServer.BuildJsonObject(
-                ("status", ready ? "ok" : "no_game"),
+                ("status", HttpServer.ToJsonString(ready ? "ok" : "no_game")),
                 ("game_loaded", ready ? "true" : "false"),
-                ("service", "RimWorld MCP Bridge")
+                ("service", HttpServer.ToJsonString("RimWorld MCP Bridge"))
             ));
         }
     }

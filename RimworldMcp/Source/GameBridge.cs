@@ -17,9 +17,14 @@ namespace RimworldMcp
 
         /// <summary>
         /// Execute an action on the game thread and wait for the result.
+        /// Returns immediately with default if game is not ready.
         /// </summary>
         public T Execute<T>(Func<T> action)
         {
+            // Fail fast if game isn't ready — no point blocking
+            if (!IsGameReady())
+                throw new InvalidOperationException("Game is not loaded yet");
+
             T result = default(T);
             Exception caught = null;
             var done = new ManualResetEvent(false);

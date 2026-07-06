@@ -193,5 +193,40 @@ namespace RimworldMcp
             dict.TryGetValue(key, out var val);
             return val;
         }
+
+        // ─── Forbid / Unforbid Items ───
+        public static string ForbidItem(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+
+            string thingLabel = GetValue(data, "thing");
+            string forbidStr = GetValue(data, "forbid");
+
+            if (thingLabel == null)
+                return HttpServer.JsonError("Missing field: thing");
+
+            bool forbid = true;
+            if (forbidStr != null)
+                bool.TryParse(forbidStr, out forbid);
+
+            int found = 0;
+            foreach (var t in Find.CurrentMap.spawnedThings)
+            {
+                if (t.def.label.ToLower().Contains(thingLabel.ToLower()))
+                {
+                    t.SetForbidden(forbid);
+                    found++;
+                }
+            }
+
+            if (found == 0)
+                return HttpServer.JsonError($"No items found matching: {thingLabel}");
+
+            return HttpServer.JsonSuccess($"{{\"message\":\"Updated {found} item(s)\",\"forbid\":{forbid.ToString().ToLower()},\"matched\":\"{HttpServer.EscapeJson(thingLabel)}\"}}");
+        }
     }
 }

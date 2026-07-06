@@ -102,6 +102,83 @@ namespace RimworldMcp
             return HttpServer.JsonSuccess($"{{\"message\":\"Added bill '{recipe.label}' to {workTable.LabelCap}\"}}");
         }
 
+        // ─── Remove Bill ───
+        public static string RemoveBill(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+            string buildingName = GetValue(data, "building");
+            string recipeName = GetValue(data, "recipe");
+
+            if (buildingName == null || recipeName == null)
+                return HttpServer.JsonError("Missing fields: building, recipe");
+
+            foreach (var thing in Find.CurrentMap.spawnedThings)
+            {
+                var wt = thing as Building_WorkTable;
+                if (wt == null) continue;
+                if (!thing.LabelCap.ToString().ToLower().Contains(buildingName.ToLower())
+                    && !thing.def.defName.ToLower().Contains(buildingName.ToLower()))
+                    continue;
+
+                for (int i = wt.BillStack.Count - 1; i >= 0; i--)
+                {
+                    var bill = wt.BillStack[i];
+                    if (bill.recipe?.label.ToLower().Contains(recipeName.ToLower()) == true
+                        || bill.recipe?.defName.ToLower().Contains(recipeName.ToLower()) == true)
+                    {
+                        wt.BillStack.Delete(bill);
+                        return HttpServer.JsonSuccess($"{{\"message\":\"Removed '{bill.LabelCap}' from {thing.LabelCap}\"}}");
+                    }
+                }
+            }
+
+            return HttpServer.JsonError($"No matching bill found: {recipeName} at {buildingName}");
+        }
+
+        // ─── Suspend/Resume Bill ───
+        public static string SuspendBill(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+            string buildingName = GetValue(data, "building");
+            string recipeName = GetValue(data, "recipe");
+            string suspendStr = GetValue(data, "suspend");
+
+            if (buildingName == null || recipeName == null)
+                return HttpServer.JsonError("Missing fields: building, recipe");
+
+            bool suspend = true;
+            if (suspendStr != null) bool.TryParse(suspendStr, out suspend);
+
+            foreach (var thing in Find.CurrentMap.spawnedThings)
+            {
+                var wt = thing as Building_WorkTable;
+                if (wt == null) continue;
+                if (!thing.LabelCap.ToString().ToLower().Contains(buildingName.ToLower())
+                    && !thing.def.defName.ToLower().Contains(buildingName.ToLower()))
+                    continue;
+
+                foreach (var bill in wt.BillStack)
+                {
+                    if (bill.recipe?.label.ToLower().Contains(recipeName.ToLower()) == true
+                        || bill.recipe?.defName.ToLower().Contains(recipeName.ToLower()) == true)
+                    {
+                        bill.suspended = suspend;
+                        return HttpServer.JsonSuccess($"{{\"message\":\"{(suspend ? "Suspended" : "Resumed")} '{bill.LabelCap}'\"}}");
+                    }
+                }
+            }
+
+            return HttpServer.JsonError($"No matching bill found: {recipeName} at {buildingName}");
+        }
+
         private static Dictionary<string, string> ParseSimpleJson(string json)
         {
             var dict = new Dictionary<string, string>();

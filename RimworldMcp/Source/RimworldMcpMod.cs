@@ -16,16 +16,36 @@ namespace RimworldMcp
         {
             Instance = this;
             Bridge = new GameBridge();
+            // Start the HTTP server immediately (background thread, works on main menu)
+            StartServer();
+            // Poll for game load to register GameComponent (Harmony-free approach)
+            new System.Threading.Thread(() =>
+            {
+                while (true)
+                {
+                    System.Threading.Thread.Sleep(2000);
+                    if (Current.Game != null)
+                    {
+                        var existing = Current.Game.GetComponent<RimworldMcpGameComp>();
+                        if (existing == null)
+                        {
+                            var comp = new RimworldMcpGameComp(Current.Game);
+                            Current.Game.components.Add(comp);
+                            Log.Message("[RimWorldMcp] GameComponent registered via poller.");
+                        }
+                        // Check if event feed needs init (once)
+                        try { EventFeedManager.Init(); } catch { }
+                        break;
+                    }
+                }
+            }) { IsBackground = true, Name = "MCP-Poller" }.Start();
         }
 
         public override void DoSettingsWindowContents(UnityEngine.Rect inRect)
         {
             base.DoSettingsWindowContents(inRect);
-            // Future: add settings for port, auth token, etc.
         }
 
-        // Called when a new game is loaded or created
-        // We start the HTTP server once a colony exists
         public void StartServer()
         {
             if (_httpServer != null) return;
@@ -45,7 +65,6 @@ namespace RimworldMcp
             });
             _serverThread.IsBackground = true;
             _serverThread.Start();
-
             Log.Message("[RimWorldMcp] HTTP server thread started.");
         }
 

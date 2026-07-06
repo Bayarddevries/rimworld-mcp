@@ -21,6 +21,7 @@ namespace RimworldMcp
         private static int _lastColonistCount;
         private static float _lastFoodCount;
         private static int _lastResearchCompleted;
+        private static int _lastLetterCount;
 
         public static void Init()
         {
@@ -29,6 +30,7 @@ namespace RimworldMcp
             _lastFoodCount = 0;
             _lastResearchCompleted = DefDatabase<ResearchProjectDef>.AllDefsListForReading
                 .Count(p => p.IsFinished);
+            _lastLetterCount = Find.LetterStack?.LettersListForReading?.Count ?? 0;
         }
 
         /// <summary>
@@ -129,6 +131,35 @@ namespace RimworldMcp
                     RecordEvent("research_completed", $"{newOnes} research project(s) completed", "info");
                 }
                 _lastResearchCompleted = completed;
+
+                // Check for new letters (raids, traders, quests, etc.) via LetterStack
+                try
+                {
+                    var ls = Find.LetterStack;
+                    if (ls != null)
+                    {
+                        List<Letter> letters = null;
+                        try { letters = ls.LettersListForReading; } catch { }
+                        if (letters != null && letters.Count > _lastLetterCount)
+                        {
+                            for (int i = _lastLetterCount; i < letters.Count; i++)
+                            {
+                                var let = letters[i];
+                                if (let == null) continue;
+                                string defName = let.def?.defName ?? "letter";
+                                string label = let.Label.ToString();
+                                string severity = "info";
+                                if (defName.Contains("Death") || defName.Contains("Attack") || defName.Contains("Raid"))
+                                    severity = "critical";
+                                else if (defName.Contains("Threat") || defName.Contains("Danger"))
+                                    severity = "warning";
+                                RecordEvent(defName, label, severity);
+                            }
+                            _lastLetterCount = letters.Count;
+                        }
+                    }
+                }
+                catch { }
             }
             catch (Exception ex)
             {

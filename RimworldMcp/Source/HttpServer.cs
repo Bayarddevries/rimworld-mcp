@@ -56,6 +56,8 @@ namespace RimworldMcp
             _getRoutes["/api/goals"] = GoalHandler.ListGoals;
             _getRoutes["/api/colony/paused"] = TimeHandler.GetPauseState;
             _getRoutes["/api/colony/autopause"] = AutoPauseManager.GetConfig;
+            _getRoutes["/api/prisoners"] = PrisonersHandler.List;
+            _getRoutes["/api/zones"] = ZonesHandler.List;
 
             // POST routes
             _postRoutes["/api/pawns/skill"] = PawnsHandler.SetSkill;
@@ -64,14 +66,22 @@ namespace RimworldMcp
             _postRoutes["/api/pawns/needs"] = PawnsHandler.SetNeeds;
             _postRoutes["/api/pawns/gear"] = PawnsHandler.EquipGear;
             _postRoutes["/api/pawns/inspire"] = PawnsHandler.Inspire;
+            _postRoutes["/api/pawns/priorities"] = PawnsHandler.HandlePriorities;
+            _postRoutes["/api/pawns/inventory"] = PawnsHandler.Inventory;
+            _postRoutes["/api/pawns/unequip"] = PawnsHandler.UnequipGear;
+            _postRoutes["/api/pawns/rename"] = PawnsHandler.Rename;
+            _postRoutes["/api/pawns/surgery"] = PawnsHandler.Surgery;
             _postRoutes["/api/spawn/thing"] = SpawnHandler.SpawnThing;
             _postRoutes["/api/spawn/pawn"] = SpawnHandler.SpawnPawn;
             _postRoutes["/api/research/unlock"] = ResearchHandler.Unlock;
             _postRoutes["/api/events/trigger"] = EventsHandler.Trigger;
             _postRoutes["/api/colony/stockpile"] = ColonyHandler.AddResources;
+            _postRoutes["/api/colony/forbid"] = ColonyHandler.ForbidItem;
             _postRoutes["/api/colony/command"] = ColonyHandler.IssueCommand;
             _postRoutes["/api/save"] = SaveHandler.Save;
             _postRoutes["/api/map/bills/add"] = BillsHandler.AddBill;
+            _postRoutes["/api/map/bills/remove"] = BillsHandler.RemoveBill;
+            _postRoutes["/api/map/bills/suspend"] = BillsHandler.SuspendBill;
             _postRoutes["/api/chat/send"] = ChatHandler.SendPlayerMessage;
             _postRoutes["/api/chat/respond"] = ChatHandler.SendHermesResponse;
             _postRoutes["/api/goals/set"] = GoalHandler.SetGoal;
@@ -79,6 +89,8 @@ namespace RimworldMcp
             _postRoutes["/api/batch"] = BatchHandler.Execute;
             _postRoutes["/api/colony/time"] = TimeHandler.SetTime;
             _postRoutes["/api/colony/autopause"] = AutoPauseManager.SetConfig;
+            _postRoutes["/api/prisoners/action"] = PrisonersHandler.Action;
+            _postRoutes["/api/pawns/command"] = CommandHandler.Execute;
         }
 
         public void Start()
@@ -172,6 +184,7 @@ namespace RimworldMcp
                 byte[] buffer = Encoding.UTF8.GetBytes(result);
                 response.ContentType = "application/json";
                 response.ContentLength64 = buffer.Length;
+                response.Headers["Access-Control-Allow-Origin"] = "*";
                 response.OutputStream.Write(buffer, 0, buffer.Length);
             }
             catch (Exception ex)
@@ -180,6 +193,7 @@ namespace RimworldMcp
                 byte[] buffer = Encoding.UTF8.GetBytes(error);
                 response.ContentType = "application/json";
                 response.ContentLength64 = buffer.Length;
+                response.Headers["Access-Control-Allow-Origin"] = "*";
                 response.OutputStream.Write(buffer, 0, buffer.Length);
             }
             finally
@@ -197,13 +211,19 @@ namespace RimworldMcp
             }
 
             // Prefix match (for /api/pawns/{id} style routes)
+            // Pick the longest matching key to avoid ambiguous matching
+            // e.g. /api/pawns (List) vs /api/pawns/ (GetById) for path /api/pawns/255
+            string bestKey = null;
             foreach (var kvp in routes)
             {
                 if (path.StartsWith(kvp.Key) && path.Length > kvp.Key.Length)
                 {
-                    return _bridge.Execute(() => kvp.Value(request));
+                    if (bestKey == null || kvp.Key.Length > bestKey.Length)
+                        bestKey = kvp.Key;
                 }
             }
+            if (bestKey != null)
+                return _bridge.Execute(() => routes[bestKey](request));
 
             return JsonError($"Route not found: {request.HttpMethod} {path}");
         }

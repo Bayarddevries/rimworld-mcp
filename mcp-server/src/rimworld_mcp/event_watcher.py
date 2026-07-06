@@ -1,7 +1,6 @@
-"""
-RimWorld event watcher daemon.
+"""RimWorld event watcher daemon.
 
-Connects to the RimWorld mod's SSE event stream (http://localhost:8765/api/events/stream)
+Connects to the RimWorld mod's SSE event stream
 and dispatches events to:
   1. A rolling JSONL log file at ~/rimworld-events.jsonl
   2. Optionally, Telegram (if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set)
@@ -25,9 +24,11 @@ import urllib.error
 from datetime import datetime
 from pathlib import Path
 
+from . import RIMWORLD_API_BASE
+
 # ── Configuration ────────────────────────────────────────────────────
 
-RIMWORLD_API = "http://localhost:8765"
+RIMWORLD_API = RIMWORLD_API_BASE
 SSE_URL = f"{RIMWORLD_API}/api/events/stream"
 FEED_URL = f"{RIMWORLD_API}/api/events/feed"
 EVENTS_LOG = Path.home() / "rimworld-events.jsonl"

@@ -541,3 +541,7 @@ def main_sync():
     """Synchronous entry point for script-based launch."""
     import asyncio
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    main_sync()

@@ -529,5 +529,332 @@ namespace RimworldMcp
             dict.TryGetValue(key, out var val);
             return val;
         }
+
+        // ─── Work Priorities ───
+
+        public static string HandlePriorities(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+
+            string identifier = GetValue(data, "pawn");
+            if (identifier == null)
+                return HttpServer.JsonError("Missing field: pawn");
+
+            var pawn = GameBridge.FindColonist(identifier);
+            if (pawn == null)
+                return HttpServer.JsonError($"Pawn not found: {identifier}");
+            if (pawn.workSettings == null)
+                return HttpServer.JsonError("Pawn has no work settings");
+
+            // Parse priorities from the raw body JSON instead of using ParseSimpleJson
+            // (ParseSimpleJson can't handle nested objects)
+            string rawBody = body;
+            int prioIdx = rawBody.IndexOf("\"priorities\"", StringComparison.OrdinalIgnoreCase);
+            if (prioIdx >= 0)
+            {
+                // Find the start of the priorities value (after the colon)
+                int colonIdx = rawBody.IndexOf(':', prioIdx + 12);
+                if (colonIdx >= 0)
+                {
+                    string afterColon = rawBody.Substring(colonIdx + 1).Trim();
+                    if (afterColon.StartsWith("{"))
+                    {
+                        // Extract the nested object by tracking brace depth
+                        int depth = 0;
+                        int endIdx = -1;
+                        for (int i = 0; i < afterColon.Length; i++)
+                        {
+                            if (afterColon[i] == '{') depth++;
+                            else if (afterColon[i] == '}') { depth--; if (depth == 0) { endIdx = i; break; } }
+                        }
+                        if (endIdx > 0)
+                        {
+                            string prioritiesRaw = afterColon.Substring(0, endIdx + 1);
+                            var priorityDict = ParseSimpleJson(prioritiesRaw);
+                            int setCount = 0;
+                            foreach (var kvp in priorityDict)
+                            {
+                                var wt = DefDatabase<WorkTypeDef>.GetNamedSilentFail(kvp.Key);
+                                if (wt == null)
+                                {
+                                    wt = DefDatabase<WorkTypeDef>.AllDefsListForReading
+                                        .FirstOrDefault(d => d.defName.Equals(kvp.Key, StringComparison.OrdinalIgnoreCase));
+                                }
+                                if (wt != null && int.TryParse(kvp.Value, out int prio))
+                                {
+                                    pawn.workSettings.SetPriority(wt, prio);
+                                    setCount++;
+                                }
+                            }
+                            return HttpServer.JsonSuccess($"{{\"message\":\"Updated {setCount} priorities\",\"pawn_id\":\"{HttpServer.EscapeJson(identifier)}\"}}");
+                        }
+                    }
+                }
+            }
+
+            // No priorities field → return current priorities
+            var workTypes = DefDatabase<WorkTypeDef>.AllDefsListForReading;
+            var items = new List<string>();
+            foreach (var wt in workTypes)
+            {
+                int priority = pawn.workSettings.GetPriority(wt);
+                string label = wt.label ?? wt.defName;
+                string pawnLabel = wt.pawnLabel ?? label;
+                items.Add("{" +
+                    $"\"defName\":\"{HttpServer.EscapeJson(wt.defName)}\"," +
+                    $"\"label\":\"{HttpServer.EscapeJson(label)}\"," +
+                    $"\"priority\":{priority}" +
+                    "}");
+            }
+
+            return HttpServer.JsonSuccess(
+                "{\"count\":" + items.Count + ",\"priorities\":[" + string.Join(",", items) + "],\"pawn_id\":\"" + HttpServer.EscapeJson(identifier) + "\"}"
+            );
+        }
+
+        // ─── Inventory ───
+        public static string Inventory(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+            string identifier = GetValue(data, "pawn");
+            if (identifier == null)
+                return HttpServer.JsonError("Missing field: pawn");
+
+            var pawn = GameBridge.FindColonist(identifier);
+            if (pawn == null)
+                return HttpServer.JsonError($"Pawn not found: {identifier}");
+
+            var items = new List<string>();
+
+            // Equipment (weapons)
+            if (pawn.equipment != null)
+            {
+                foreach (var eq in pawn.equipment.AllEquipmentListForReading)
+                {
+                    string ql = "";
+                    try { ql = eq.TryGetQuality(out var q) ? q.GetLabel() : ""; } catch { }
+                    items.Add("{" +
+                        $"\"type\":\"weapon\"," +
+                        $"\"label\":\"{HttpServer.EscapeJson(eq.def.label)}\"," +
+                        $"\"quality\":\"{HttpServer.EscapeJson(ql)}\"," +
+                        $"\"hp\":{eq.HitPoints}," +
+                        $"\"maxHp\":{eq.MaxHitPoints}" +
+                        "}");
+                }
+            }
+
+            // Apparel
+            if (pawn.apparel != null)
+            {
+                foreach (var ap in pawn.apparel.WornApparel)
+                {
+                    string ql = "";
+                    try { ql = ap.TryGetQuality(out var q) ? q.GetLabel() : ""; } catch { }
+                    items.Add("{" +
+                        $"\"type\":\"apparel\"," +
+                        $"\"label\":\"{HttpServer.EscapeJson(ap.def.label)}\"," +
+                        $"\"quality\":\"{HttpServer.EscapeJson(ql)}\"," +
+                        $"\"hp\":{ap.HitPoints}," +
+                        $"\"maxHp\":{ap.MaxHitPoints}" +
+                        "}");
+                }
+            }
+
+            // Inventory (carried items)
+            if (pawn.inventory != null)
+            {
+                foreach (var inv in pawn.inventory.innerContainer)
+                {
+                    items.Add("{" +
+                        $"\"type\":\"inventory\"," +
+                        $"\"label\":\"{HttpServer.EscapeJson(inv.def.label)}\"," +
+                        $"\"count\":{inv.stackCount}," +
+                        $"\"hp\":{inv.HitPoints}," +
+                        $"\"maxHp\":{inv.MaxHitPoints}" +
+                        "}");
+                }
+            }
+
+            return HttpServer.JsonSuccess($"{{\"count\":{items.Count},\"items\":[{string.Join(",", items)}],\"pawn_id\":\"{HttpServer.EscapeJson(identifier)}\"}}");
+        }
+
+        // ─── Unequip / Drop Item ───
+        public static string UnequipGear(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+
+            string pawnId = GetValue(data, "pawn");
+            string itemName = GetValue(data, "item");
+            if (pawnId == null || itemName == null)
+                return HttpServer.JsonError("Missing fields: pawn, item");
+
+            var pawn = GameBridge.FindColonist(pawnId);
+            if (pawn == null)
+                return HttpServer.JsonError($"Pawn not found: {pawnId}");
+
+            // Try equipment
+            if (pawn.equipment != null)
+            {
+                var toRemove = pawn.equipment.AllEquipmentListForReading
+                    .FirstOrDefault(e => e.def.label.ToLower().Contains(itemName.ToLower()));
+                if (toRemove != null)
+                {
+                    pawn.equipment.Remove(toRemove);
+                    return HttpServer.JsonSuccess($"{{\"message\":\"Unequipped {HttpServer.EscapeJson(toRemove.def.label)}\"}}");
+                }
+            }
+
+            // Try apparel
+            if (pawn.apparel != null)
+            {
+                var toRemove = pawn.apparel.WornApparel
+                    .FirstOrDefault(a => a.def.label.ToLower().Contains(itemName.ToLower()));
+                if (toRemove != null)
+                {
+                    pawn.apparel.Remove(toRemove);
+                    return HttpServer.JsonSuccess($"{{\"message\":\"Removed {HttpServer.EscapeJson(toRemove.def.label)}\"}}");
+                }
+            }
+
+            return HttpServer.JsonError($"Item not found on pawn: {itemName}");
+        }
+
+        // ─── Rename ───
+        public static string Rename(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+
+            string identifier = GetValue(data, "pawn");
+            if (identifier == null)
+                return HttpServer.JsonError("Missing field: pawn");
+
+            var pawn = GameBridge.FindColonist(identifier);
+            if (pawn == null)
+                return HttpServer.JsonError($"Pawn not found: {identifier}");
+
+            string first = GetValue(data, "first");
+            string nick = GetValue(data, "nick");
+            string last = GetValue(data, "last");
+
+            if (first == null && nick == null && last == null)
+                return HttpServer.JsonError("Provide at least one of: first, nick, last");
+
+            NameTriple curName = pawn.Name as NameTriple;
+            string curFirst = curName?.First ?? first ?? "";
+            string curNick = curName?.Nick ?? nick ?? "Unnamed";
+            string curLast = curName?.Last ?? last ?? "";
+
+            if (first != null) curFirst = first;
+            if (nick != null) curNick = nick;
+            if (last != null) curLast = last;
+
+            pawn.Name = new NameTriple(curFirst, curNick, curLast);
+
+            return HttpServer.JsonSuccess($"{{\"message\":\"Renamed to {curNick}\",\"first\":\"{HttpServer.EscapeJson(curFirst)}\",\"nick\":\"{HttpServer.EscapeJson(curNick)}\",\"last\":\"{HttpServer.EscapeJson(curLast)}\"}}");
+        }
+
+        // ─── Surgery / Bionics ───
+        public static string Surgery(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+
+            string pawnId = GetValue(data, "pawn");
+            string implantName = GetValue(data, "implant");
+            string bodyPart = GetValue(data, "body_part");
+            string action = GetValue(data, "action"); // "install" or "remove"
+
+            if (pawnId == null || implantName == null || action == null)
+                return HttpServer.JsonError("Missing fields: pawn, implant, action");
+
+            var pawn = GameBridge.FindColonist(pawnId);
+            if (pawn == null)
+                return HttpServer.JsonError($"Pawn not found: {pawnId}");
+
+            // Find the hediff def for the implant
+            HediffDef hediffDef = DefDatabase<HediffDef>.AllDefsListForReading
+                .FirstOrDefault(h => h.label.ToLower().Contains(implantName.ToLower()) ||
+                                     h.defName.ToLower().Contains(implantName.ToLower()));
+
+            if (hediffDef == null)
+                return HttpServer.JsonError($"Implant not found: {implantName}");
+
+            if (action.ToLower() == "install")
+            {
+                // Find target body part
+                BodyPartRecord part = null;
+                try
+                {
+                    string bodyPartVal = GetValue(data, "body_part");
+                    if (bodyPartVal != null)
+                    {
+                        part = pawn.RaceProps.body.AllParts
+                            .FirstOrDefault(p => p.Label.ToLower().Contains(bodyPartVal.ToLower()));
+                    }
+                    // If no specific part, use the hediff's default part
+                    if (part == null && hediffDef.defaultInstallPart != null)
+                        part = pawn.RaceProps.body.AllParts
+                            .FirstOrDefault(p => p.def == hediffDef.defaultInstallPart);
+                }
+                catch { /* part remains null — some hediffs are whole-body */ }
+
+                // Install the implant
+                try
+                {
+                    var hediff = HediffMaker.MakeHediff(hediffDef, pawn, part);
+                    if (hediff == null)
+                        return HttpServer.JsonError($"Failed to create hediff: {hediffDef.label}");
+                    pawn.health.AddHediff(hediff, part != null ? part : null);
+                }
+                catch (Exception ex)
+                {
+                    // Try without body part (whole-body)
+                    try
+                    {
+                        var hediff = HediffMaker.MakeHediff(hediffDef, pawn, null);
+                        if (hediff != null)
+                        {
+                            pawn.health.AddHediff(hediff, null);
+                            return HttpServer.JsonSuccess($"{{\"message\":\"Installed {hediffDef.label}\"}}");
+                        }
+                    }
+                    catch { }
+                    return HttpServer.JsonError($"Failed to install {hediffDef.label}: {ex.Message}");
+                }
+                return HttpServer.JsonSuccess($"{{\"message\":\"Installed {hediffDef.label}\"}}");
+            }
+            else if (action.ToLower() == "remove")
+            {
+                // Find existing implant and remove it
+                var existing = pawn.health.hediffSet.GetFirstHediffOfDef(hediffDef);
+                if (existing != null)
+                {
+                    pawn.health.RemoveHediff(existing);
+                    return HttpServer.JsonSuccess($"{{\"message\":\"Removed {hediffDef.label}\"}}");
+                }
+                return HttpServer.JsonError($"Pawn doesn't have implant: {implantName}");
+            }
+
+            return HttpServer.JsonError($"Unknown action: {action}. Use 'install' or 'remove'.");
+        }
     }
 }

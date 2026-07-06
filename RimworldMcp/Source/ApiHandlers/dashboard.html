@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>RimWorld — Colony Command</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--bg:#0d1117;--surface:#161b22;--border:#30363d;--text:#c9d1d9;--dim:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#da3633;--orange:#d29922;--purple:#bc8cff;--nav-h:60px;--bottom-h:52px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;gap:8px}
+.topbar h1{font-size:16px;color:var(--accent);font-weight:700;margin:0;flex-shrink:0}
+.topbar .right{display:flex;align-items:center;gap:6px;margin-left:auto}
+.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.status-dot.online{background:var(--green);box-shadow:0 0 5px var(--green)}
+.status-dot.offline{background:var(--red)}
+#conn-text{font-size:11px;color:var(--dim)}
+.time-btns{display:flex;gap:2px}
+.time-btns button{background:#21262d;border:1px solid var(--border);color:var(--text);padding:4px 8px;font-size:12px;cursor:pointer;border-radius:4px;line-height:1}
+.time-btns button:active,.time-btns button.active-speed{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-save{background:var(--green);border:1px solid var(--green);color:#fff;padding:4px 10px;font-size:11px;border-radius:4px;cursor:pointer;font-weight:600}
+
+/* Main scroll area */
+.main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:12px 12px calc(var(--bottom-h)+12px)}
+.tab{display:none}
+.tab.active{display:block}
+
+/* Bottom nav */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:var(--bottom-h);background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100;flex-shrink:0}
+.bottom-nav .n{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:10px;color:var(--dim);cursor:pointer;padding:4px 0;transition:color .15s;border:none;background:none;-webkit-tap-highlight-color:transparent}
+.bottom-nav .n .ico{font-size:18px;line-height:1}
+.bottom-nav .n.active{color:var(--accent)}
+.bottom-nav .n:active{opacity:.6}
+.bottom-nav .n .ev-badge{background:var(--red);color:#fff;font-size:8px;padding:1px 4px;border-radius:8px;position:absolute;margin-top:-18px;margin-left:14px}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px}
+.card h2{font-size:11px;text-transform:uppercase;color:var(--dim);margin-bottom:8px;letter-spacing:.5px}
+.card-row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;flex:1;min-width:100px}
+.stat-card .l{font-size:10px;text-transform:uppercase;color:var(--dim);letter-spacing:.3px}
+.stat-card .v{font-size:20px;font-weight:600;margin-top:2px}
+.stat-card .s{font-size:10px;color:var(--dim);margin-top:1px}
+
+/* Resource tags */
+.res-grid{display:flex;flex-wrap:wrap;gap:4px}
+.res-tag{background:#21262d;border:1px solid var(--border);padding:3px 8px;border-radius:5px;font-size:12px;white-space:nowrap}
+.res-tag .n{font-weight:600;margin-right:3px}
+
+/* Buttons */
+.btn{background:#21262d;border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:500;transition:all .1s;display:inline-flex;align-items:center;gap:4px}
+.btn:active{transform:scale(.96)}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:6px}
+.btn-primary{background:#1f6feb;border-color:#1f6feb;color:#fff}
+.btn-green{background:var(--green);border-color:var(--green);color:#fff}
+.btn-danger{background:var(--red);border-color:var(--red);color:#fff}
+.btn-orange{background:var(--orange);border-color:var(--orange);color:#fff}
+.btn-group{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}
+
+/* Form elements */
+label{font-size:11px;color:var(--dim);display:block;margin:6px 0 2px}
+select,input,textarea{background:#0d1117;border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:6px;font-size:13px;width:100%;outline:none}
+select:focus,input:focus,textarea:focus{border-color:var(--accent)}
+.flex-row{display:flex;gap:6px;align-items:end;flex-wrap:wrap}
+.flex-row > *{flex:1;min-width:60px}
+.flex-row .btn{flex:0 0 auto}
+.slider-row{display:flex;align-items:center;gap:8px}
+.slider-row input[type=range]{flex:1;height:6px;-webkit-appearance:none;appearance:none;background:var(--border);border-radius:3px;outline:none;padding:0}
+.slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer;border:none}
+.slider-row .val{font-size:13px;font-weight:600;min-width:40px;text-align:right}
+
+/* Pawn list */
+.pawn-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:5px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .1s}
+.pawn-card:active{border-color:var(--accent);background:#1c2128}
+.pawn-card .av{width:32px;height:32px;border-radius:50%;background:#21262d;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.pawn-card .info{flex:1;min-width:0}
+.pawn-card .info .nm{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pawn-card .info .sub{font-size:10px;color:var(--dim)}
+.pawn-card .mood-bar{width:60px;flex-shrink:0}
+.pawn-card .mood-bar .bar{height:4px;border-radius:2px;background:var(--border);overflow:hidden}
+.pawn-card .mood-bar .fill{height:100%;border-radius:2px;transition:width .3s}
+.pawn-card .mood-bar .pct{font-size:10px;text-align:right;margin-top:1px}
+
+/* Pawn detail tabs */
+.pawn-detail{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.pawn-detail .pd-head{padding:12px 14px 8px;border-bottom:1px solid var(--border)}
+.pawn-detail .pd-head h3{font-size:16px}
+.pawn-detail .pd-head .meta{font-size:11px;color:var(--dim);margin-top:2px}
+.pawn-detail .pd-tabs{display:flex;border-bottom:1px solid var(--border);overflow-x:auto}
+.pawn-detail .pd-tabs .pt{flex:1;text-align:center;padding:8px 0;font-size:11px;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .1s}
+.pawn-detail .pd-tabs .pt.active{color:var(--accent);border-bottom-color:var(--accent)}
+.pawn-detail .pd-body{padding:12px 14px;max-height:320px;overflow-y:auto}
+.pawn-detail .pd-body .empty{color:var(--dim);font-size:12px;text-align:center;padding:16px}
+
+/* Skill rows */
+.skill-row{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #1c2128;font-size:13px}
+.skill-row:last-child{border-bottom:none}
+.skill-row .sn{flex:1;color:var(--dim)}
+.skill-row .sl{font-weight:600;min-width:20px;text-align:right}
+.skill-row .sp{display:flex;gap:1px;margin-left:4px}
+.skill-row .sp .f{width:12px;height:12px;border-radius:50%;opacity:.3}
+.skill-row .sp .f.on{opacity:1;background:var(--orange)}
+.skill-row .bar-w{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.skill-row .bar-w .f{height:100%;border-radius:2px;background:var(--accent)}
+.skill-row .pass{color:var(--orange)}
+.skill-row .mast{color:var(--accent)}
+
+/* Need bars */
+.need-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #1c2128}
+.need-row:last-child{border-bottom:none}
+.need-row .nn{font-size:12px;min-width:60px;color:var(--dim)}
+.need-row .nb{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.need-row .nb .f{height:100%;border-radius:3px;transition:width .3s}
+.need-row .np{font-size:11px;min-width:30px;text-align:right}
+
+/* Gear rows */
+.gear-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #1c2128;font-size:12px}
+.gear-row:last-child{border-bottom:none}
+.gear-row .gi{font-size:14px}
+
+/* Injuries */
+.injury-item{padding:5px 0;border-bottom:1px solid #1c2128;font-size:12px}
+.injury-item:last-child{border-bottom:none}
+.injury-item .il{color:var(--red)}
+.injury-item .ip{color:var(--dim);font-size:11px}
+
+/* Research */
+.res-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1c2128;gap:8px}
+.res-item:last-child{border-bottom:none}
+.res-item .ri{flex:1;min-width:0}
+.res-item .ri .rn{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res-item .ri .rc{font-size:10px;color:var(--dim)}
+.res-item .ri .pb{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:3px}
+.res-item .ri .pb .pf{height:100%;border-radius:2px;background:var(--accent)}
+.res-item.done{opacity:.4}
+
+/* Events stream */
+#ev-stream{height:280px;overflow-y:auto;background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:8px;font-size:11px;line-height:1.5;font-family:monospace}
+.ev-item{padding:3px 0;border-bottom:1px solid #141a22}
+.ev-item .tm{color:var(--dim);margin-right:6px}
+.ev-critical{color:var(--red);border-left:3px solid var(--red);padding-left:6px;background:rgba(218,54,51,.06)}
+.ev-warning{color:var(--orange);border-left:3px solid var(--orange);padding-left:6px;background:rgba(210,153,34,.06)}
+.ev-info{padding-left:8px;color:var(--dim)}
+
+/* Chat */
+.chat-box{height:300px;overflow-y:auto;background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px}
+.chat-msg{padding:5px 0;border-bottom:1px solid #1c2128}
+
+/* Quick spawn grid */
+.qs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:4px}
+.qs-grid button{padding:6px;font-size:11px;text-align:center}
+
+/* Goals */
+.goal-card{background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:5px}
+.goal-card .gd{display:flex;justify-content:space-between;align-items:center}
+.goal-card .gd .gt{font-size:12px;color:var(--dim)}
+.goal-card .gd .gv{font-weight:600}
+.goal-card .gb{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:5px}
+.goal-card .gb .gf{height:100%;border-radius:3px;background:var(--green);transition:width .3s}
+
+/* Toggle */
+.toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--dim);user-select:none}
+.toggle .tk{width:36px;height:20px;background:var(--border);border-radius:10px;position:relative;transition:background .2s;flex-shrink:0}
+.toggle .tk::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text);transition:transform .2s}
+.toggle.on .tk{background:var(--accent)}
+.toggle.on .tk::after{transform:translateX(16px)}
+.toggle.on{color:var(--text)}
+
+/* Notifications */
+.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--green);color:var(--green);padding:8px 16px;border-radius:8px;font-size:12px;z-index:999;animation:tf .25s;white-space:nowrap}
+.toast.err{border-color:var(--red);color:var(--red)}
+@keyframes tf{from{opacity:0;transform:translateX(-50%) translateY(10px)}}
+
+/* Commands bar in events */
+.cmd-bar{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}
+.cmd-bar button{flex:1;min-width:70px;padding:7px 4px;font-size:11px;text-align:center}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.loading{text-align:center;padding:24px;color:var(--dim);font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⏺ Colony</h1>
+  <div style="display:flex;align-items:center;gap:4px">
+    <span class="status-dot offline" id="status-dot"></span>
+    <span id="conn-text">—</span>
+  </div>
+  <div class="right">
+    <div class="time-btns">
+      <button onclick="setSpeed('pause')" title="Pause">⏸</button>
+      <button onclick="setSpeed('play')" title="Play (1x)">▶</button>
+      <button onclick="setSpeed('fast')" title="Fast (2x)">▶▶</button>
+      <button onclick="setSpeed('superfast')" title="Super (3x)">▶▶▶</button>
+    </div>
+    <button class="btn-save" onclick="saveGame()">💾</button>
+  </div>
+</div>
+
+<div class="main" id="main">
+  <!-- ================ OVERVIEW ================ -->
+  <div class="tab active" id="tab-overview">
+    <div class="card-row" id="ov-cards"></div>
+
+    <div class="card">
+      <h2>Resources</h2>
+      <div id="res-container"><div class="loading">Loading...</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Quick Events</h2>
+      <div class="cmd-bar">
+        <button class="btn btn-sm btn-danger" onclick="triggerEvent('raid')">⚔ Raid</button>
+        <button class="btn btn-sm" onclick="triggerEvent('manhunters')">🐗 Manhunt</button>
+        <button class="btn btn-sm btn-orange" onclick="triggerEvent('infestation')">🕷 Infest</button>
+        <button class="btn btn-sm" onclick="triggerEvent('traders')">🐪 Trade</button>
+        <button class="btn btn-sm btn-green" onclick="triggerEvent('wanderer')">🧑 Wanderer</button>
+        <button class="btn btn-sm" onclick="triggerEvent('cold_snap')">🥶 Cold</button>
+        <button class="btn btn-sm" onclick="triggerEvent('heat_wave')">🔥 Heat</button>
+        <button class="btn btn-sm" onclick="triggerEvent('eclipse')">🌑 Eclipse</button>
+      </div>
+      <div class="slider-row" style="margin-top:8px">
+        <span style="font-size:11px;color:var(--dim);min-width:50px">Threat</span>
+        <input type="range" id="threat-slider" min="50" max="5000" value="500" step="50">
+        <span class="val" id="threat-val">500</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="flex-row" style="align-items:center">
+        <span style="font-size:12px">Auto-pause on critical events</span>
+        <div class="toggle" id="auto-pause-toggle" onclick="toggleAutoPause()" style="margin-left:auto">
+          <div class="tk"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================ PAWNS ================ -->
+  <div class="tab" id="tab-pawns">
+    <div class="card">
+      <div class="flex-row" style="margin-bottom:8px">
+        <input type="text" id="pawn-search" placeholder="Search pawns..." oninput="renderPawnList()" style="flex:3">
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-sm" onclick="draftAllArmed()">⚔ Draft Armed</button>
+        <button class="btn btn-sm" onclick="releaseAll()">✅ Release All</button>
+      </div>
+      <div id="pawns-list"><div class="loading">Loading pawns...</div></div>
+    </div>
+    <div id="pawn-detail-area"></div>
+  </div>
+
+  <!-- ================ RESEARCH ================ -->
+  <div class="tab" id="tab-research">
+    <div class="card">
+      <div class="flex-row" style="margin-bottom:8px">
+        <input type="text" id="res-search" placeholder="Search..." oninput="renderResearch()" style="flex:3">
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--dim);flex:0;white-space:nowrap">
+          <input type="checkbox" id="res-hide" onchange="renderResearch()" checked> Hide done
+        </label>
+      </div>
+      <div id="res-container"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- ================ SPAWN ================ -->
+  <div class="tab" id="tab-spawn">
+    <div class="card">
+      <h2>Quick Spawn</h2>
+      <div class="qs-grid">
+        <button onclick="spawn('steel',100)">Steel 100</button>
+        <button onclick="spawn('steel',500)">Steel 500</button>
+        <button onclick="spawn('plasteel',50)">Plasteel 50</button>
+        <button onclick="spawn('gold',20)">Gold 20</button>
+        <button onclick="spawn('uranium',50)">Uranium</button>
+        <button onclick="spawn('component',30)">Comp 30</button>
+        <button onclick="spawn('advancedcomponent',10)">AdvComp</button>
+        <button onclick="spawn('food',200)">Food 200</button>
+        <button onclick="spawn('medicine',30)">Medicine</button>
+        <button onclick="spawn('silver',1000)">💰 1000</button>
+        <button onclick="spawn('wood',500)">Wood 500</button>
+        <button onclick="spawn('cloth',200)">Cloth 200</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Custom Spawn</h2>
+      <div class="flex-row">
+        <div><label>Item</label><input id="sp-item" placeholder="steel, food, ..."></div>
+        <div><label>Count</label><input id="sp-count" type="number" value="50"></div>
+        <div><label>X</label><input id="sp-x" type="number" placeholder="map X"></div>
+        <div><label>Z</label><input id="sp-z" type="number" placeholder="map Z"></div>
+        <button class="btn btn-primary" onclick="customSpawn()" style="flex:0">Go</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Colonists</h2>
+      <button class="btn btn-green" onclick="spawnColonist()">➕ Spawn Colonist</button>
+    </div>
+  </div>
+
+  <!-- ================ EVENTS ================ -->
+  <div class="tab" id="tab-events">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <h2 style="margin:0">🔴 Live Feed</h2>
+        <div>
+          <span id="ev-count" style="font-size:11px;color:var(--dim)">0</span>
+          <button class="btn btn-sm" onclick="clearEvents()">Clear</button>
+        </div>
+      </div>
+      <div id="ev-stream"><div style="color:var(--dim);text-align:center;padding:16px;font-size:12px">Listening...</div></div>
+    </div>
+    <div class="card">
+      <h2>History</h2>
+      <div id="ev-history"><div class="loading">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- ================ GOALS ================ -->
+  <div class="tab" id="tab-goals">
+    <div class="card">
+      <h2>Active Goals</h2>
+      <div id="goals-list"><div class="loading">Loading goals...</div></div>
+    </div>
+    <div class="card">
+      <h2>Set Goal</h2>
+      <div class="flex-row">
+        <div><label>ID</label><input id="goal-id" placeholder="unique-name"></div>
+        <div><label>Description</label><input id="goal-desc" placeholder="Stockpile 2000 steel"></div>
+      </div>
+      <div class="flex-row">
+        <div><label>Type</label>
+          <select id="goal-type">
+            <option value="resource">Resource</option>
+            <option value="research">Research</option>
+            <option value="colonists">Colonists</option>
+            <option value="wealth">Wealth</option>
+          </select>
+        </div>
+        <div><label>Target</label><input id="goal-target" type="number" value="1000"></div>
+        <div><label>Item (optional)</label><input id="goal-item" placeholder="steel"></div>
+      </div>
+      <button class="btn btn-primary" onclick="setGoal()" style="margin-top:6px">Set Goal</button>
+    </div>
+  </div>
+
+  <!-- ================ CHAT ================ -->
+  <div class="tab" id="tab-chat">
+    <div class="card">
+      <h2>In-Game Chat</h2>
+      <div class="chat-box" id="chat-box">
+        <div style="color:var(--dim);text-align:center;padding:16px">No messages</div>
+      </div>
+      <div class="flex-row">
+        <input id="chat-input" placeholder="Message to colony..." onkeydown="if(event.key==='Enter')sendChat()" style="flex:3">
+        <button class="btn btn-primary" onclick="sendChat()" style="flex:0">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="n active" data-tab="overview"><span class="ico">📊</span>Overview</button>
+  <button class="n" data-tab="pawns"><span class="ico">👥</span>Pawns</button>
+  <button class="n" data-tab="research"><span class="ico">🔬</span>Research</button>
+  <button class="n" data-tab="spawn"><span class="ico">📦</span>Spawn</button>
+  <button class="n" data-tab="events"><span class="ico">📡</span>Events</button>
+  <button class="n" data-tab="goals"><span class="ico">🎯</span>Goals</button>
+  <button class="n" data-tab="chat"><span class="ico">💬</span>Chat</button>
+</nav>
+
+<script>
+const API = window.location.origin;
+
+// ─── State ───
+let pawns=[], research=[], resources=[], overview=null, goals=[];
+let evHistory=[], eventSource=null;
+
+// ─── API helper ───
+async function api(path, opts={}) {
+  const url = `${API}${path}`;
+  const res = await fetch(url, {
+    method: opts.method||'GET',
+    headers: opts.body?{'Content-Type':'application/json'}:{},
+    body: opts.body?JSON.stringify(opts.body):undefined
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ct = res.headers.get('content-type')||'';
+  if (ct.includes('json')) {
+    const d = await res.json();
+    if (d.success === false) throw new Error(d.error||'API error');
+    return d.data;
+  }
+  return res.text();
+}
+
+// ─── Navigation ───
+document.querySelectorAll('.n').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.n').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    const tb = document.getElementById('tab-'+b.dataset.tab);
+    if (tb) tb.classList.add('active');
+    document.getElementById('main').scrollTop = 0;
+  });
+});
+
+// ─── Connection ───
+async function checkConn() {
+  try {
+    const d = await api('/api/health');
+    const ok = d && d.game_loaded === 'true';
+    document.getElementById('status-dot').className = 'status-dot '+(ok?'online':'offline');
+    document.getElementById('conn-text').textContent = ok?'Connected':'No game';
+    if (ok) {
+      loadOverview(); loadResources(); loadPawns(); loadResearch();
+      loadGoals(); loadEventHistory();
+    }
+  } catch(e) {
+    document.getElementById('status-dot').className = 'status-dot offline';
+    document.getElementById('conn-text').textContent = 'Offline';
+  }
+}
+
+// ─── Overview ───
+async function loadOverview() {
+  try {
+    overview = await api('/api/colony/overview');
+    document.getElementById('ov-cards').innerHTML = `
+      <div class="stat-card"><div class="l">Colony</div><div class="v">${esc(overview.colony_name||'—')}</div><div class="s">${esc(overview.biome||'')}</div></div>
+      <div class="stat-card"><div class="l">Wealth</div><div class="v">${(overview.wealth_total||0).toLocaleString()}</div><div class="s">Items ${(overview.wealth_items||0).toLocaleString()} · Bldg ${(overview.wealth_buildings||0).toLocaleString()}</div></div>
+      <div class="stat-card"><div class="l">Pawns</div><div class="v">${overview.colonists||0}</div><div class="s">🐾${overview.animals||0} · 🚫${overview.prisoners||0}</div></div>
+      <div class="stat-card"><div class="l">Weather</div><div class="v">${esc(overview.weather||'—')}</div><div class="s">${esc(overview.season||'')}</div></div>
+      <div class="stat-card"><div class="l">Date</div><div class="v">${overview.year||'?'} ${overview.day_of_season||''}</div><div class="s">${overview.season||''}</div></div>
+      <div class="stat-card"><div class="l">Storyteller</div><div class="v">${esc(overview.storyteller||'—')}</div><div class="s">${esc(overview.difficulty||'')}</div></div>
+    `;
+  } catch(e){}
+}
+
+async function loadResources() {
+  try {
+    resources = await api('/api/colony/resources');
+    const c = document.getElementById('res-container');
+    if (!resources||!resources.length) {c.innerHTML='<div style="color:var(--dim);font-size:12px">None</div>';return;}
+    c.innerHTML = '<div class="res-grid">'+resources.map(r=>
+      `<span class="res-tag"><span class="n">${r.count||0}</span> ${esc(r.label||r.defName||r.name||'?')}</span>`
+    ).join('')+'</div>';
+  } catch(e){}
+}
+
+// ─── Pawns ───
+async function loadPawns() {
+  try { pawns = await api('/api/pawns'); renderPawnList(); } catch(e){}
+}
+
+function renderPawnList() {
+  const q = (document.getElementById('pawn-search').value||'').toLowerCase();
+  const f = pawns.filter(p=>(p.name+'').toLowerCase().includes(q)||(p.full_name+'').toLowerCase().includes(q));
+  const c = document.getElementById('pawns-list');
+  if (!f.length) {c.innerHTML='<div style="color:var(--dim);padding:12px;font-size:13px">No pawns</div>';return;}
+  c.innerHTML = f.map(p=>{
+    const m = Math.round((p.mood||0)*100);
+    const mc = m>=70?'var(--green)':m>=35?'var(--orange)':'var(--red)';
+    return `<div class="pawn-card" onclick="showPawn(${p.id})">
+      <div class="av">${p.gender==='Female'?'♀':'♂'}</div>
+      <div class="info">
+        <div class="nm">${esc(p.full_name||p.name)}</div>
+        <div class="sub">${p.kind||'Colonist'} · ${p.age||'?'} · ❤${Math.round((p.health||0)*100)}%</div>
+      </div>
+      <div class="mood-bar">
+        <div class="bar"><div class="fill" style="width:${m}%;background:${mc}"></div></div>
+        <div class="pct" style="color:${mc}">${m}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Pawn detail ───
+let _detailPawn = null;
+async function showPawn(id) {
+  try {
+    _detailPawn = await api(`/api/pawns/${id}`);
+    renderPawnDetail();
+    document.getElementById('pawn-detail-area').scrollIntoView({behavior:'smooth'});
+  } catch(e){toast(e.message,'err');}
+}
+
+let _detailTab = 'health';
+function switchDetailTab(t) {
+  _detailTab = t;
+  renderPawnDetail();
+}
+
+function renderPawnDetail() {
+  const p = _detailPawn;
+  if (!p) return;
+  const area = document.getElementById('pawn-detail-area');
+  const tabs = ['health','skills','gear','needs'];
+  area.innerHTML = `<div class="pawn-detail" id="pd-${p.id}">
+    <div class="pd-head">
+      <h3>${esc(p.full_name||p.name)}</h3>
+      <div class="meta">${p.kind||'Colonist'} · ${p.gender||''} · ${p.age||'?'} · ❤ ${Math.round((p.health||0)*100)}% · 😊 ${Math.round((p.mood||0)*100)}%</div>
+    </div>
+    <div class="pd-tabs">${tabs.map(t=>`<div class="pt ${t===_detailTab?'active':''}" onclick="switchDetailTab('${t}')">${t.charAt(0).toUpperCase()+t.slice(1)}</div>`).join('')}</div>
+    <div class="pd-body">${detailBody(p)}</div>
+  </div>`;
+}
+
+function detailBody(p) {
+  if (_detailTab==='health') return healthTab(p);
+  if (_detailTab==='skills') return skillsTab(p);
+  if (_detailTab==='gear') return gearTab(p);
+  if (_detailTab==='needs') return needsTab(p);
+  return '';
+}
+
+function healthTab(p) {
+  const inj = (p.injuries||[]).map(i=>`<div class="injury-item"><div class="il">${esc(i.label)}</div><div class="ip">${esc(i.part)} · severity ${(i.severity||0).toFixed(1)}</div></div>`).join('');
+  return `<div style="margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>Overall health</span><span>${Math.round((p.health||0)*100)}%</span></div>
+    <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden"><div style="width:${Math.round((p.health||0)*100)}%;height:100%;background:var(--green);border-radius:3px"></div></div>
+  </div>
+  <div style="margin-bottom:6px">
+    <button class="btn btn-sm btn-green" onclick="healPawn(${p.id})">❤️ Heal All</button>
+    <button class="btn btn-sm" onclick="inspirePawn(${p.id})">✨ Inspire</button>
+    <button class="btn btn-sm" onclick="setMood(${p.id})">😊 Max Mood</button>
+    <button class="btn btn-sm" onclick="setFood(${p.id})">🍔 Feed</button>
+    <button class="btn btn-sm" onclick="setRest(${p.id})">💤 Rest</button>
+  </div>
+  ${inj?`<div style="font-size:11px;text-transform:uppercase;color:var(--dim);margin:6px 0 3px">Injuries</div>${inj}`:'<div style="color:var(--dim);font-size:12px;padding:8px 0">No injuries</div>'}`;
+}
+
+function skillsTab(p) {
+  const skills = p.skills||[];
+  if (!skills.length) return '<div class="empty">No skills</div>';
+  return skills.map(s=>{
+    const ci = s.level>=14?'mast':s.level>=10?'':'';
+    const flames = s.passion>0?`<span class="sp">${[1,2].map(i=>`<span class="f ${i<=s.passion?'on':''}"></span>`).join('')}</span>`:'';
+    const pct = Math.min(100, Math.round((s.xp||0)/100));
+    return `<div class="skill-row">
+      <span class="sn ${ci}">${s.name}</span>
+      ${flames}
+      <span class="sl">${s.level}</span>
+      <div class="bar-w"><div class="f" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function gearTab(p) {
+  const eq = (p.equipment||[]).map(g=>`<div class="gear-row"><span class="gi">🔫</span>${esc(g)}</div>`).join('');
+  const ap = (p.apparel||[]).map(a=>`<div class="gear-row"><span class="gi">👕</span>${esc(a)}</div>`).join('');
+  const job = p.current_job ? `<div class="gear-row"><span class="gi">🔧</span>${esc(p.current_job)}</div>` : '';
+  return `
+    <div style="margin-bottom:6px">
+      <button class="btn btn-sm" onclick="toggleDraft(${p.id})">${p.drafted?'✅ Release':'⚔️ Draft'}</button>
+    </div>
+    ${job?`<div style="font-size:11px;text-transform:uppercase;color:var(--dim);margin:6px 0 3px">Current Job</div>${job}`:''}
+    ${eq?`<div style="font-size:11px;text-transform:uppercase;color:var(--dim);margin:6px 0 3px">Equipment</div>${eq}`:'<div style="color:var(--dim);font-size:12px;padding:4px 0">No equipment</div>'}
+    ${ap?`<div style="font-size:11px;text-transform:uppercase;color:var(--dim);margin:6px 0 3px">Apparel</div>${ap}`:''}
+    <div style="font-size:11px;text-transform:uppercase;color:var(--dim);margin:6px 0 3px">Traits</div>
+    <div>${(p.traits||[]).map(t=>`<span class="res-tag">${esc(t)}</span>`).join('')||'<span style="color:var(--dim);font-size:12px">None</span>'}</div>
+  `;
+}
+
+function needsTab(p) {
+  const needs = p.needs||[];
+  if (!needs.length) return '<div class="empty">No needs</div>';
+  return needs.map(n=>{
+    const v = n.value||0;
+    const c = v>=0.7?'var(--green)':v>=0.35?'var(--orange)':'var(--red)';
+    return `<div class="need-row">
+      <span class="nn">${esc(n.name)}</span>
+      <div class="nb"><div class="f" style="width:${Math.round(v*100)}%;background:${c}"></div></div>
+      <span class="np" style="color:${c}">${Math.round(v*100)}%</span>
+    </div>`;
+  }).join('');
+}
+
+// ─── Pawn actions ───
+async function healPawn(id) {
+  try { await api('/api/pawns/health',{method:'POST',body:{pawn:id,action:'heal'}}); toast('Healed!'); showPawn(id); } catch(e){toast(e.message,'err');}
+}
+async function inspirePawn(id) {
+  try { await api('/api/pawns/inspire',{method:'POST',body:{pawn:id}}); toast('Inspired!'); showPawn(id); } catch(e){toast(e.message,'err');}
+}
+async function toggleDraft(id) {
+  try { await api('/api/colony/command',{method:'POST',body:{command:'toggle_draft',target:id}}); loadPawns(); showPawn(id); } catch(e){toast(e.message,'err');}
+}
+async function setMood(id) {
+  try { await api('/api/pawns/needs',{method:'POST',body:{pawn:id,need:'Mood',value:1}}); showPawn(id); } catch(e){toast(e.message,'err');}
+}
+async function setFood(id) {
+  try { await api('/api/pawns/needs',{method:'POST',body:{pawn:id,need:'Food',value:1}}); showPawn(id); } catch(e){toast(e.message,'err');}
+}
+async function setRest(id) {
+  try { await api('/api/pawns/needs',{method:'POST',body:{pawn:id,need:'Rest',value:1}}); showPawn(id); } catch(e){toast(e.message,'err');}
+}
+
+// ─── Draft all armed / release all ───
+async function draftAllArmed() {
+  try {
+    const equipped = pawns.filter(p=>p.equipment&&p.equipment.length>0);
+    for (const p of equipped) {
+      await api('/api/colony/command',{method:'POST',body:{command:'toggle_draft',target:p.id}});
+    }
+    toast(`Drafted ${equipped.length} armed`);
+    loadPawns();
+  } catch(e){toast(e.message,'err');}
+}
+async function releaseAll() {
+  try {
+    for (const p of pawns) {
+      if (p.drafted) await api('/api/colony/command',{method:'POST',body:{command:'toggle_draft',target:p.id}});
+    }
+    toast('Released all');
+    loadPawns();
+  } catch(e){toast(e.message,'err');}
+}
+
+// ─── Research ───
+async function loadResearch() {
+  try { research = await api('/api/research'); renderResearch(); } catch(e){}
+}
+function renderResearch() {
+  const q = (document.getElementById('res-search').value||'').toLowerCase();
+  const hide = document.getElementById('res-hide').checked;
+  const f = research.filter(r=>(!hide||!r.is_finished)&&(r.label+'').toLowerCase().includes(q));
+  const c = document.getElementById('res-container');
+  if (!f.length) {c.innerHTML='<div style="color:var(--dim);padding:12px;font-size:13px">None</div>';return;}
+  c.innerHTML = f.map(r=>{
+    const pct = r.is_finished?100:Math.round((r.progress||0)/(r.cost||1)*100);
+    return `<div class="res-item ${r.is_finished?'done':''}">
+      <div class="ri">
+        <div class="rn">${esc(r.label)}</div>
+        <div class="rc">${r.cost||0} pts${r.is_finished?' ✅':` · ${pct}%`}</div>
+        ${!r.is_finished?`<div class="pb"><div class="pf" style="width:${pct}%"></div></div>`:''}
+      </div>
+      ${!r.is_finished?`<button class="btn btn-sm btn-primary" onclick="unlockRes('${r.id}')">Unlock</button>`:''}
+    </div>`;
+  }).join('');
+}
+async function unlockRes(id) {
+  try { await api('/api/research/unlock',{method:'POST',body:{tech:id}}); toast('Research unlocked!'); loadResearch(); } catch(e){toast(e.message,'err');}
+}
+
+// ─── Spawn ───
+async function spawn(item,count) {
+  const x = document.getElementById('sp-x').value;
+  const z = document.getElementById('sp-z').value;
+  const body = {thing:item,count};
+  if (x) body.x = parseInt(x);
+  if (z) body.z = parseInt(z);
+  try { await api('/api/spawn/thing',{method:'POST',body}); toast(`${count}x ${item}`); loadResources(); } catch(e){toast(e.message,'err');}
+}
+async function customSpawn() {
+  const item = document.getElementById('sp-item').value.trim();
+  const count = parseInt(document.getElementById('sp-count').value)||1;
+  if (!item) return;
+  await spawn(item,count);
+}
+async function spawnColonist() {
+  try { await api('/api/spawn/pawn',{method:'POST',body:{kind:'colonist'}}); toast('Colonist spawned!'); loadPawns(); } catch(e){toast(e.message,'err');}
+}
+
+// ─── Events ───
+document.getElementById('threat-slider').addEventListener('input',function(){
+  document.getElementById('threat-val').textContent = this.value;
+});
+async function triggerEvent(type) {
+  const pts = parseInt(document.getElementById('threat-slider').value);
+  try { await api('/api/events/trigger',{method:'POST',body:{event:type,points:pts}}); toast(`Triggered ${type} (${pts}pts)`); } catch(e){toast(e.message,'err');}
+}
+
+// ─── Auto-pause ───
+async function loadAutoPause() {
+  try {
+    const d = await api('/api/colony/autopause');
+    const on = d?.enabled===true;
+    document.getElementById('auto-pause-toggle').className = 'toggle'+(on?' on':'');
+  } catch(e){}
+}
+async function toggleAutoPause() {
+  const el = document.getElementById('auto-pause-toggle');
+  const on = el.classList.contains('on');
+  try { await api('/api/colony/autopause',{method:'POST',body:{enabled:!on}}); el.classList.toggle('on'); toast(!on?'Auto-pause on':'Auto-pause off'); } catch(e){toast(e.message,'err');}
+}
+
+// ─── Time ───
+async function setSpeed(speed) {
+  try { await api('/api/colony/time',{method:'POST',body:{speed}}); } catch(e){toast(e.message,'err');}
+}
+async function saveGame() {
+  try { await api('/api/save',{method:'POST',body:{slot:'dashboard'}); toast('Saved!'); } catch(e){toast(e.message,'err');}
+}
+
+// ─── SSE Event stream ───
+function connectSSE() {
+  if (eventSource) eventSource.close();
+  eventSource = new EventSource(`${API}/api/events/stream`);
+  eventSource.onmessage = e=>{
+    try {
+      const d = JSON.parse(e.data);
+      if (d.events) d.events.forEach(evt=>pushEvent(evt));
+    } catch(ex){}
+  };
+  eventSource.onerror = ()=>{setTimeout(connectSSE,3000)};
+}
+
+function pushEvent(evt) {
+  evHistory.push(evt);
+  const s = document.getElementById('ev-stream');
+  const sev = (evt.severity||'info').toLowerCase();
+  const t = evt.timestamp||new Date().toLocaleTimeString();
+  const el = document.createElement('div');
+  el.className = `ev-item ev-${sev}`;
+  el.innerHTML = `<span class="tm">${t}</span>${esc(evt.description||evt.type||'Event')}`;
+  s.appendChild(el);
+  s.scrollTop = s.scrollHeight;
+  while(s.children.length>200) s.removeChild(s.firstChild);
+  document.getElementById('ev-count').textContent = evHistory.length;
+}
+
+function clearEvents() {
+  evHistory=[];
+  document.getElementById('ev-stream').innerHTML='<div style="color:var(--dim);text-align:center;padding:16px;font-size:12px">Cleared</div>';
+  document.getElementById('ev-count').textContent='0';
+}
+
+// ─── Event history ───
+async function loadEventHistory() {
+  try {
+    const h = await api('/api/events/history');
+    const c = document.getElementById('ev-history');
+    if (!h||!h.length) {c.innerHTML='<div style="color:var(--dim);font-size:12px">No events</div>';return;}
+    c.innerHTML = h.slice(-50).reverse().map(e=>{
+      const sev = (e.severity||'info').toLowerCase();
+      return `<div class="ev-item ev-${sev}"><span class="tm">${e.timestamp||''}</span>${esc(e.description||e.type||'')}</div>`;
+    }).join('');
+  } catch(e){}
+}
+
+// ─── Goals ───
+async function loadGoals() {
+  try {
+    goals = await api('/api/goals');
+    const c = document.getElementById('goals-list');
+    if (!goals||!goals.length) {c.innerHTML='<div style="color:var(--dim);font-size:12px">No active goals. Set one below!</div>';return;}
+    c.innerHTML = goals.map(g=>{
+      const pct = Math.min(100,Math.round(((g.progress||0)/(g.target||1))*100));
+      return `<div class="goal-card">
+        <div class="gd">
+          <div>
+            <div style="font-size:13px">${esc(g.description||g.id)}</div>
+            <div class="gt">${g.type||''}${g.target_item?` · ${esc(g.target_item)}`:''}</div>
+          </div>
+          <div class="gv">${g.progress||0} / ${g.target||0}</div>
+        </div>
+        <div class="gb"><div class="gf" style="width:${pct}%"></div></div>
+        <button class="btn btn-sm btn-danger" onclick="removeGoal('${g.id}')" style="margin-top:6px">Remove</button>
+      </div>`;
+    }).join('');
+  } catch(e){}
+}
+async function setGoal() {
+  const id = document.getElementById('goal-id').value.trim();
+  const desc = document.getElementById('goal-desc').value.trim();
+  const type = document.getElementById('goal-type').value;
+  const target = parseInt(document.getElementById('goal-target').value);
+  const item = document.getElementById('goal-item').value.trim();
+  if (!id||!desc) return toast('ID and description required','err');
+  try {
+    await api('/api/goals/set',{method:'POST',body:{id,description:desc,type,target,target_item:item||undefined}});
+    toast('Goal set!');
+    loadGoals();
+  } catch(e){toast(e.message,'err');}
+}
+async function removeGoal(id) {
+  try { await api('/api/goals/remove',{method:'POST',body:{id}}); toast('Goal removed'); loadGoals(); } catch(e){toast(e.message,'err');}
+}
+
+// ─── Chat ───
+async function sendChat() {
+  const inp = document.getElementById('chat-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = '';
+  try {
+    await api('/api/chat/send',{method:'POST',body:{text}});
+    addChatMsg('You',text);
+  } catch(e){toast(e.message,'err');}
+}
+function addChatMsg(from,text) {
+  const c = document.getElementById('chat-box');
+  if (c.children.length===1 && c.children[0].textContent.includes('No messages')) c.innerHTML='';
+  const d = document.createElement('div');
+  d.className = 'chat-msg';
+  d.innerHTML = `<strong>${esc(from)}:</strong> ${esc(text)}`;
+  c.appendChild(d);
+  c.scrollTop = c.scrollHeight;
+}
+async function pollChat() {
+  try {
+    const msgs = await api('/api/chat/pending_responses');
+    if (msgs&&msgs.length) msgs.forEach(m=>addChatMsg('✦ Colony',m.text||m));
+  } catch(e){}
+}
+
+// ─── Toast ───
+function toast(msg,type) {
+  const el = document.createElement('div');
+  el.className = 'toast'+(type==='err'?' err':'');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)},2000);
+}
+
+// ─── Utils ───
+function esc(s) { return (s||'').replace(/<[^>]*>/g,'').trim(); }
+
+// ─── Init ───
+async function init() {
+  await checkConn();
+  loadAutoPause();
+  connectSSE();
+  setInterval(checkConn, 15000);
+  setInterval(loadOverview, 12000);
+  setInterval(loadResources, 18000);
+  setInterval(loadGoals, 15000);
+  setInterval(pollChat, 3000);
+}
+init();
+</script>
+</body>
+</html>
