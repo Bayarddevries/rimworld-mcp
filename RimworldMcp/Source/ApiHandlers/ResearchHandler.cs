@@ -65,9 +65,28 @@ namespace RimworldMcp
                 // Complete instantly
                 Find.ResearchManager.FinishProject(project);
                 return HttpServer.JsonSuccess($"{{\"message\":\"Completed research: {project.label}\"}}");
-        }
+            }
+            else if (action == "set_active")
+            {
+                // Set as current research project via reflection (ResearchManager.currentProj is private in 1.6)
+                var field = typeof(ResearchManager).GetField("currentProj",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                if (field != null)
+                {
+                    field.SetValue(Find.ResearchManager, project);
+                    return HttpServer.JsonSuccess($"{{\"message\":\"Now researching: {project.label}\"}}");
+                }
+                // Fallback: try property
+                var prop = typeof(ResearchManager).GetProperty("CurrentProj");
+                if (prop != null)
+                {
+                    prop.SetValue(Find.ResearchManager, project);
+                    return HttpServer.JsonSuccess($"{{\"message\":\"Now researching: {project.label}\"}}");
+                }
+                return HttpServer.JsonError("Cannot set active research - ResearchManager API not found in this RimWorld version");
+            }
 
-        return HttpServer.JsonError("Unknown action. Use 'unlock' or 'complete'.");
+            return HttpServer.JsonError("Unknown action. Use 'unlock', 'complete', or 'set_active'.");
         }
 
         private static Dictionary<string, string> ParseSimpleJson(string json)

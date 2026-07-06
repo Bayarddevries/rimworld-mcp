@@ -58,6 +58,7 @@ namespace RimworldMcp
             _getRoutes["/api/colony/autopause"] = AutoPauseManager.GetConfig;
             _getRoutes["/api/prisoners"] = PrisonersHandler.List;
             _getRoutes["/api/zones"] = ZonesHandler.List;
+            _getRoutes["/api/alerts"] = AlertsHandler.List;
 
             // POST routes
             _postRoutes["/api/pawns/skill"] = PawnsHandler.SetSkill;

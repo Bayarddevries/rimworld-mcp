@@ -25,6 +25,12 @@ namespace RimworldMcp
 
         public static void Init()
         {
+            // This runs on the background poller thread — only sets a flag.
+            // Actual init (Find.TickManager etc.) happens in InitGameThread() on the game thread.
+        }
+
+        public static void InitGameThread()
+        {
             _lastCheckTick = Find.TickManager.TicksGame;
             _lastColonistCount = GameBridge.GetAllColonists().Count;
             _lastFoodCount = 0;

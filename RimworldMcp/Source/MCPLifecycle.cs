@@ -50,6 +50,8 @@ namespace RimworldMcp
         public override void FinalizeInit()
         {
             base.FinalizeInit();
+            // Init event feed on the game thread (Find.TickManager etc. works here)
+            EventFeedManager.InitGameThread();
         }
 
         public override void GameComponentTick()

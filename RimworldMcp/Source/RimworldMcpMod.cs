@@ -33,8 +33,6 @@ namespace RimworldMcp
                             Current.Game.components.Add(comp);
                             Log.Message("[RimWorldMcp] GameComponent registered via poller.");
                         }
-                        // Check if event feed needs init (once)
-                        try { EventFeedManager.Init(); } catch { }
                         break;
                     }
                 }
