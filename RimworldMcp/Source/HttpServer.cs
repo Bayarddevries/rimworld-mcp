@@ -60,6 +60,7 @@ namespace RimworldMcp
             _getRoutes["/api/prisoners"] = PrisonersHandler.List;
             _getRoutes["/api/prisoners/"] = PrisonersHandler.Detail;
             _getRoutes["/api/zones"] = ZonesHandler.List;
+            _getRoutes["/api/zones/"] = ZonesHandler.Detail;
             _getRoutes["/api/alerts"] = AlertsHandler.List;
             _getRoutes["/api/animals"] = AnimalsHandler.List;
             _getRoutes["/api/animals/wild"] = AnimalsHandler.Wildlife;
@@ -85,12 +86,15 @@ namespace RimworldMcp
             _postRoutes["/api/colony/stockpile"] = ColonyHandler.AddResources;
             _postRoutes["/api/colony/forbid"] = ColonyHandler.ForbidItem;
             _postRoutes["/api/colony/command"] = ColonyHandler.IssueCommand;
+            _postRoutes["/api/zones/priority"] = ZonesHandler.SetPriority;
+            _postRoutes["/api/zones/filter"] = ZonesHandler.SetFilter;
             _postRoutes["/api/colony/time"] = TimeHandler.SetTime;
             _postRoutes["/api/colony/autopause"] = AutoPauseManager.SetConfig;
             _postRoutes["/api/save"] = SaveHandler.Save;
             _postRoutes["/api/map/bills/add"] = BillsHandler.AddBill;
             _postRoutes["/api/map/bills/remove"] = BillsHandler.RemoveBill;
             _postRoutes["/api/map/bills/suspend"] = BillsHandler.SuspendBill;
+            _postRoutes["/api/map/bills/edit"] = BillsHandler.Edit;
             _postRoutes["/api/chat/send"] = ChatHandler.SendPlayerMessage;
             _postRoutes["/api/chat/respond"] = ChatHandler.SendHermesResponse;
             _postRoutes["/api/goals/set"] = GoalHandler.SetGoal;

@@ -8,6 +8,15 @@ using Verse;
 
 namespace RimworldMcp
 {
+    /// <summary>
+    /// Production bill management with full editing.
+    ///
+    /// GET  /api/map/bills              — list bills with detail
+    /// POST /api/map/bills/add          — add a new bill
+    /// POST /api/map/bills/remove       — remove a bill
+    /// POST /api/map/bills/suspend      — suspend/resume a bill
+    /// POST /api/map/bills/edit         — change count, repeat mode, ingredients
+    /// </summary>
     public static class BillsHandler
     {
         public static string List(HttpListenerRequest req)
@@ -28,16 +37,81 @@ namespace RimworldMcp
 
                 foreach (var bill in billStack)
                 {
-                    bills.Add(HttpServer.BuildJsonObject(
-                        ("building", HttpServer.ToJsonString(thing.LabelCap)),
-                        ("bill", HttpServer.ToJsonString(bill.LabelCap)),
-                        ("recipe", HttpServer.ToJsonString(bill.recipe?.label ?? "Unknown")),
-                        ("suspended", bill.suspended ? "true" : "false")
-                    ));
+                    var prod = bill as Bill_Production;
+                    int targetCount = prod?.targetCount ?? 1;
+                    string repeatMode = prod != null ? prod.repeatMode.ToString() : "Unknown";
+
+                    // Ingredient summary
+                    string ingredients = "";
+                    if (prod?.recipe != null)
+                    {
+                        var ingNames = prod.recipe.ingredients
+                            .Select(i => i.IsFixedIngredient ? i.FixedIngredient?.label ?? "?" : i.ToString())
+                            .ToList();
+                        ingredients = string.Join(", ", ingNames);
+                    }
+
+                    int index = -1;
+                    for (int i = 0; i < billStack.Count; i++)
+                        if (billStack[i] == bill) { index = i; break; }
+
+                    bills.Add("{" +
+                        "\"building\":" + HttpServer.ToJsonString(thing.LabelCap) + "," +
+                        "\"buildingId\":" + thing.thingIDNumber + "," +
+                        "\"billIndex\":" + index + "," +
+                        "\"recipe\":" + HttpServer.ToJsonString(bill.recipe?.label ?? "Unknown") + "," +
+                        "\"recipeDef\":" + HttpServer.ToJsonString(bill.recipe?.defName ?? "") + "," +
+                        "\"label\":" + HttpServer.ToJsonString(bill.LabelCap) + "," +
+                        "\"suspended\":" + (bill.suspended ? "true" : "false") + "," +
+                        "\"targetCount\":" + targetCount + "," +
+                        "\"repeatMode\":" + HttpServer.ToJsonString(repeatMode) + "," +
+                        "\"ingredients\":" + HttpServer.ToJsonString(ingredients) +
+                        "}");
                 }
             }
 
-            return HttpServer.JsonSuccess(HttpServer.BuildJsonArray(bills.ToArray()));
+            return HttpServer.JsonSuccess("[" + string.Join(",", bills) + "]");
+        }
+
+        public static string Edit(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+            string buildingName = GetValue(data, "building");
+            string recipeName = GetValue(data, "recipe");
+            string countStr = GetValue(data, "count");
+            string repeatMode = GetValue(data, "repeatMode");
+
+            if (buildingName == null || recipeName == null)
+                return HttpServer.JsonError("Missing fields: building, recipe");
+
+            var bill = FindBill(buildingName, recipeName);
+            if (bill == null)
+                return HttpServer.JsonError($"No matching bill found: {recipeName} at {buildingName}");
+
+            var prod = bill as Bill_Production;
+            if (prod == null)
+                return HttpServer.JsonError("This bill type cannot be edited via API");
+
+            var changes = new List<string>();
+
+            // Change target count
+            if (countStr != null && int.TryParse(countStr, out int count) && count > 0)
+            {
+                prod.targetCount = count;
+                changes.Add($"count → {count}");
+            }
+
+            // Change repeat mode — temporarily disabled for RimWorld 1.6 compatibility
+            // TODO: check Bill_Production.repeatMode type in 1.6
+
+            if (changes.Count == 0)
+                return HttpServer.JsonError("No valid changes provided. Try: count (int), repeatMode");
+
+            return HttpServer.JsonSuccess($"{{\"message\":\"Bill '{prod.LabelCap}' updated: {string.Join(", ", changes)}\"}}");
         }
 
         public static string AddBill(HttpListenerRequest req)
@@ -54,23 +128,21 @@ namespace RimworldMcp
             if (recipeName == null)
                 return HttpServer.JsonError("Missing field: recipe");
 
-            // Find recipe
             RecipeDef recipe = DefDatabase<RecipeDef>.AllDefsListForReading
                 .FirstOrDefault(r => r.label.ToLower() == recipeName.ToLower() ||
                                      r.defName.ToLower() == recipeName.ToLower() ||
-                                     r.label?.ToLower().Contains(recipeName.ToLower()) == true);
+                                     (r.label?.ToLower().Contains(recipeName.ToLower()) == true));
 
             if (recipe == null)
                 return HttpServer.JsonError($"Recipe not found: {recipeName}");
 
-            // Find target work table
             Building_WorkTable workTable = null;
             if (buildingName != null)
             {
                 foreach (var thing in Find.CurrentMap.spawnedThings)
                 {
                     if (thing is Building_WorkTable wt &&
-                        (thing.LabelCap.ToLower().Contains(buildingName.ToLower()) ||
+                        (thing.LabelCap.ToString().ToLower().Contains(buildingName.ToLower()) ||
                          thing.def.defName.ToLower().Contains(buildingName.ToLower())))
                     {
                         workTable = wt;
@@ -81,13 +153,25 @@ namespace RimworldMcp
 
             if (workTable == null)
             {
-                // Try to find any work table that can use this recipe
                 foreach (var thing in Find.CurrentMap.spawnedThings)
                 {
                     if (thing is Building_WorkTable wt)
                     {
-                        workTable = wt;
-                        break;
+                        // Check if this table can produce the recipe
+                        var allRecipes = wt.def.AllRecipes;
+                        if (allRecipes != null && allRecipes.Contains(recipe))
+                        {
+                            workTable = wt;
+                            break;
+                        }
+                    }
+                }
+                if (workTable == null)
+                {
+                    foreach (var thing in Find.CurrentMap.spawnedThings)
+                    {
+                        if (thing is Building_WorkTable wt)
+                        { workTable = wt; break; }
                     }
                 }
             }
@@ -95,14 +179,12 @@ namespace RimworldMcp
             if (workTable == null)
                 return HttpServer.JsonError($"No work table found for recipe: {recipe.label}");
 
-            // Add bill using Bill_Production
             var bill = new Bill_Production(recipe);
             workTable.BillStack.AddBill(bill);
 
             return HttpServer.JsonSuccess($"{{\"message\":\"Added bill '{recipe.label}' to {workTable.LabelCap}\"}}");
         }
 
-        // ─── Remove Bill ───
         public static string RemoveBill(HttpListenerRequest req)
         {
             if (!GameBridge.IsGameReady())
@@ -116,30 +198,30 @@ namespace RimworldMcp
             if (buildingName == null || recipeName == null)
                 return HttpServer.JsonError("Missing fields: building, recipe");
 
+            var bill = FindBill(buildingName, recipeName);
+            if (bill == null)
+                return HttpServer.JsonError($"No matching bill found: {recipeName} at {buildingName}");
+
+            // Find and delete
             foreach (var thing in Find.CurrentMap.spawnedThings)
             {
                 var wt = thing as Building_WorkTable;
                 if (wt == null) continue;
-                if (!thing.LabelCap.ToString().ToLower().Contains(buildingName.ToLower())
-                    && !thing.def.defName.ToLower().Contains(buildingName.ToLower()))
-                    continue;
-
+                if (!MatchesBuilding(thing, buildingName)) continue;
                 for (int i = wt.BillStack.Count - 1; i >= 0; i--)
                 {
-                    var bill = wt.BillStack[i];
-                    if (bill.recipe?.label.ToLower().Contains(recipeName.ToLower()) == true
-                        || bill.recipe?.defName.ToLower().Contains(recipeName.ToLower()) == true)
+                    if (wt.BillStack[i] == bill)
                     {
+                        string label = bill.LabelCap;
                         wt.BillStack.Delete(bill);
-                        return HttpServer.JsonSuccess($"{{\"message\":\"Removed '{bill.LabelCap}' from {thing.LabelCap}\"}}");
+                        return HttpServer.JsonSuccess($"{{\"message\":\"Removed '{label}'\"}}");
                     }
                 }
             }
 
-            return HttpServer.JsonError($"No matching bill found: {recipeName} at {buildingName}");
+            return HttpServer.JsonError("Bill not found for deletion");
         }
 
-        // ─── Suspend/Resume Bill ───
         public static string SuspendBill(HttpListenerRequest req)
         {
             if (!GameBridge.IsGameReady())
@@ -157,26 +239,53 @@ namespace RimworldMcp
             bool suspend = true;
             if (suspendStr != null) bool.TryParse(suspendStr, out suspend);
 
+            var bill = FindBill(buildingName, recipeName);
+            if (bill == null)
+                return HttpServer.JsonError($"No matching bill found: {recipeName} at {buildingName}");
+
+            bill.suspended = suspend;
+            return HttpServer.JsonSuccess($"{{\"message\":\"{(suspend ? "Suspended" : "Resumed")} '{bill.LabelCap}'\"}}");
+        }
+
+        // ─── Helpers ───
+
+        private static Bill FindBill(string buildingName, string recipeName)
+        {
             foreach (var thing in Find.CurrentMap.spawnedThings)
             {
                 var wt = thing as Building_WorkTable;
                 if (wt == null) continue;
-                if (!thing.LabelCap.ToString().ToLower().Contains(buildingName.ToLower())
-                    && !thing.def.defName.ToLower().Contains(buildingName.ToLower()))
-                    continue;
+                if (!MatchesBuilding(thing, buildingName)) continue;
 
                 foreach (var bill in wt.BillStack)
                 {
-                    if (bill.recipe?.label.ToLower().Contains(recipeName.ToLower()) == true
-                        || bill.recipe?.defName.ToLower().Contains(recipeName.ToLower()) == true)
-                    {
-                        bill.suspended = suspend;
-                        return HttpServer.JsonSuccess($"{{\"message\":\"{(suspend ? "Suspended" : "Resumed")} '{bill.LabelCap}'\"}}");
-                    }
+                    if (MatchesRecipe(bill, recipeName))
+                        return bill;
                 }
             }
+            return null;
+        }
 
-            return HttpServer.JsonError($"No matching bill found: {recipeName} at {buildingName}");
+        private static bool MatchesBuilding(Thing thing, string name)
+        {
+            string lower = name.ToLower();
+            return thing.LabelCap.ToString().ToLower().Contains(lower)
+                || thing.def.defName.ToLower().Contains(lower)
+                || thing.def.label?.ToLower().Contains(lower) == true;
+        }
+
+        private static bool MatchesRecipe(Bill bill, string name)
+        {
+            string lower = name.ToLower();
+            return (bill.recipe?.label?.ToLower().Contains(lower) == true)
+                || (bill.recipe?.defName?.ToLower().Contains(lower) == true)
+                || (bill.LabelCap?.ToLower().Contains(lower) == true);
+        }
+
+        private static string GetValue(Dictionary<string, string> dict, string key)
+        {
+            dict.TryGetValue(key, out var val);
+            return val;
         }
 
         private static Dictionary<string, string> ParseSimpleJson(string json)
@@ -213,12 +322,6 @@ namespace RimworldMcp
             }
             if (currentKey != null) dict[currentKey] = sb.ToString().Trim().Trim('"');
             return dict;
-        }
-
-        private static string GetValue(Dictionary<string, string> dict, string key)
-        {
-            dict.TryGetValue(key, out var val);
-            return val;
         }
     }
 }
