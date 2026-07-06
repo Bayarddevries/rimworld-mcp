@@ -95,6 +95,7 @@ namespace RimworldMcp
             _postRoutes["/api/map/bills/remove"] = BillsHandler.RemoveBill;
             _postRoutes["/api/map/bills/suspend"] = BillsHandler.SuspendBill;
             _postRoutes["/api/map/bills/edit"] = BillsHandler.Edit;
+            _postRoutes["/api/map/bills/ingredients"] = BillsHandler.SetIngredients;
             _postRoutes["/api/chat/send"] = ChatHandler.SendPlayerMessage;
             _postRoutes["/api/chat/respond"] = ChatHandler.SendHermesResponse;
             _postRoutes["/api/goals/set"] = GoalHandler.SetGoal;

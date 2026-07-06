@@ -111,7 +111,69 @@ namespace RimworldMcp
             if (changes.Count == 0)
                 return HttpServer.JsonError("No valid changes provided. Try: count (int), repeatMode");
 
-            return HttpServer.JsonSuccess($"{{\"message\":\"Bill '{prod.LabelCap}' updated: {string.Join(", ", changes)}\"}}");
+            string msg = "Bill '" + prod.LabelCap + "' updated: " + string.Join(", ", changes);
+            return HttpServer.JsonSuccess("{\"message\":" + HttpServer.ToJsonString(msg) + "}");
+        }
+
+        public static string SetIngredients(HttpListenerRequest req)
+        {
+            if (!GameBridge.IsGameReady())
+                return HttpServer.JsonError("No game loaded");
+
+            string body = HttpServer.ReadBody(req);
+            var data = ParseSimpleJson(body);
+            string buildingName = GetValue(data, "building");
+            string recipeName = GetValue(data, "recipe");
+            string material = GetValue(data, "material");
+
+            if (buildingName == null || recipeName == null)
+                return HttpServer.JsonError("Missing fields: building, recipe");
+
+            var bill = FindBill(buildingName, recipeName) as Bill_Production;
+            if (bill == null)
+                return HttpServer.JsonError($"No matching bill found: {recipeName} at {buildingName}");
+
+            if (material == null)
+                return HttpServer.JsonError("Missing field: material (use 'all', 'steel', 'wood', 'plasteel', 'uranium', 'gold', 'silver', 'cloth', etc.)");
+
+            string matLower = material.ToLower();
+
+            if (matLower == "all" || matLower == "any" || matLower == "*")
+            {
+                // Reset to allow all materials
+                var recipe = bill.recipe;
+                if (recipe != null)
+                {
+                    foreach (var ing in recipe.ingredients)
+                    {
+                        bill.ingredientFilter.SetAllowAll(ing.filter, true);
+                    }
+                }
+                return HttpServer.JsonSuccess($"{{\"message\":\"Bill '{bill.LabelCap}' accepts all materials\"}}");
+            }
+
+            // Find the material ThingDef
+            var thingDef = DefDatabase<ThingDef>.AllDefsListForReading
+                .FirstOrDefault(d => (d.label?.ToLower().Contains(matLower) == true ||
+                                      d.defName.ToLower().Contains(matLower)) &&
+                                      d.category == ThingCategory.Item);
+            if (thingDef == null)
+                return HttpServer.JsonError($"Material not found: {material}");
+
+            // Set ingredient filter
+            var ingredients = bill.recipe?.ingredients;
+            if (ingredients == null)
+                return HttpServer.JsonError("This bill has no ingredient options");
+
+            foreach (var ing in ingredients)
+            {
+                if (!ing.IsFixedIngredient)
+                {
+                    bill.ingredientFilter.SetAllow(thingDef, true);
+                }
+            }
+
+            return HttpServer.JsonSuccess($"{{\"message\":\"Bill '{bill.LabelCap}' now uses {thingDef.label}\"}}");
         }
 
         public static string AddBill(HttpListenerRequest req)
