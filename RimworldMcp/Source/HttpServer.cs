@@ -57,6 +57,11 @@ namespace RimworldMcp
             _getRoutes["/api/events/feed"] = EventFeedHandler.GetFeed;
             _getRoutes["/api/events/history"] = EventFeedHandler.GetHistory;
             _getRoutes["/api/goals"] = GoalHandler.ListGoals;
+            _getRoutes["/api/growing"] = GrowingHandler.List;
+            _getRoutes["/api/mood"] = MoodHandler.Overview;
+            _getRoutes["/api/mood/"] = MoodHandler.Detail;
+            _getRoutes["/api/areas"] = AreasHandler.List;
+            _getRoutes["/api/areas/pawns"] = AreasHandler.Pawns;
             _getRoutes["/api/prisoners"] = PrisonersHandler.List;
             _getRoutes["/api/prisoners/"] = PrisonersHandler.Detail;
             _getRoutes["/api/zones"] = ZonesHandler.List;
@@ -118,6 +123,11 @@ namespace RimworldMcp
             _postRoutes["/api/factions/gift"] = FactionsHandler.Gift;
             _postRoutes["/api/schedule"] = ScheduleHandler.Set;
             _postRoutes["/api/schedule/all"] = ScheduleHandler.SetAllHours;
+            _postRoutes["/api/areas/assign"] = AreasHandler.Assign;
+            _postRoutes["/api/areas/unassign"] = AreasHandler.Unassign;
+            _postRoutes["/api/growing/harvest"] = GrowingHandler.Harvest;
+            _postRoutes["/api/growing/sow"] = GrowingHandler.Sow;
+            _postRoutes["/api/growing/priority"] = GrowingHandler.SetAllowSow;
             _postRoutes["/api/architect/build"] = ArchitectHandler.Build;
             _postRoutes["/api/architect/deconstruct"] = ArchitectHandler.Deconstruct;
             _postRoutes["/api/architect/cancel"] = ArchitectHandler.Cancel;
