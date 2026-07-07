@@ -68,6 +68,10 @@ namespace RimworldMcp
             _getRoutes["/api/social"] = RelationsHandler.SocialOverview;
             _getRoutes["/api/recipes"] = RecipesHandler.List;
             _getRoutes["/api/weather"] = WeatherHandler.Get;
+            _getRoutes["/api/assign"] = AssignHandler.Pawns;
+            _getRoutes["/api/assign/outfits"] = AssignHandler.ListOutfits;
+            _getRoutes["/api/assign/food"] = AssignHandler.ListFood;
+            _getRoutes["/api/assign/drugs"] = AssignHandler.ListDrugs;
             _getRoutes["/api/prisoners"] = PrisonersHandler.List;
             _getRoutes["/api/prisoners/"] = PrisonersHandler.Detail;
             _getRoutes["/api/zones"] = ZonesHandler.List;
@@ -136,6 +140,10 @@ namespace RimworldMcp
             _postRoutes["/api/growing/priority"] = GrowingHandler.SetAllowSow;
             _postRoutes["/api/weather"] = WeatherHandler.Set;
             _postRoutes["/api/weather/event"] = WeatherHandler.SetEvent;
+            _postRoutes["/api/assign/outfit"] = AssignHandler.SetOutfit;
+            _postRoutes["/api/assign/food"] = AssignHandler.SetFood;
+            _postRoutes["/api/assign/drug"] = AssignHandler.SetDrug;
+            _postRoutes["/api/assign/medicare"] = AssignHandler.SetMedCare;
             _postRoutes["/api/architect/build"] = ArchitectHandler.Build;
             _postRoutes["/api/architect/deconstruct"] = ArchitectHandler.Deconstruct;
             _postRoutes["/api/architect/cancel"] = ArchitectHandler.Cancel;
