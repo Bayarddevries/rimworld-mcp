@@ -62,6 +62,8 @@ namespace RimworldMcp
             _getRoutes["/api/mood/"] = MoodHandler.Detail;
             _getRoutes["/api/areas"] = AreasHandler.List;
             _getRoutes["/api/areas/pawns"] = AreasHandler.Pawns;
+            _getRoutes["/api/pawns/stats/"] = PawnStatsHandler.Stats;
+            _getRoutes["/api/pawns/gear/"] = PawnStatsHandler.Gear;
             _getRoutes["/api/prisoners"] = PrisonersHandler.List;
             _getRoutes["/api/prisoners/"] = PrisonersHandler.Detail;
             _getRoutes["/api/zones"] = ZonesHandler.List;
