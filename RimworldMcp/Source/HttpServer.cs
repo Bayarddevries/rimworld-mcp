@@ -66,6 +66,13 @@ namespace RimworldMcp
             _getRoutes["/api/animals/wild"] = AnimalsHandler.Wildlife;
             _getRoutes["/api/animals/"] = AnimalsHandler.Detail;
             _getRoutes["/api/factions"] = FactionsHandler.List;
+            _getRoutes["/api/architect/structures"] = ArchitectHandler.Structures;
+            _getRoutes["/api/architect/blueprints"] = ArchitectHandler.Blueprints;
+            _getRoutes["/api/caravans"] = CaravanHandler.List;
+            _getRoutes["/api/caravans/settlements"] = CaravanHandler.Settlements;
+            _getRoutes["/api/dlc/ideology"] = DlcHandler.Ideology;
+            _getRoutes["/api/dlc/genes"] = DlcHandler.Genes;
+            _getRoutes["/api/dlc/xenotypes"] = DlcHandler.Xenotypes;
 
             // POST routes
             _postRoutes["/api/pawns/skill"] = PawnsHandler.SetSkill;
@@ -108,6 +115,10 @@ namespace RimworldMcp
             _postRoutes["/api/animals/slaughter"] = AnimalsHandler.Slaughter;
             _postRoutes["/api/animals/hunt"] = AnimalsHandler.Hunt;
             _postRoutes["/api/factions/gift"] = FactionsHandler.Gift;
+            _postRoutes["/api/architect/build"] = ArchitectHandler.Build;
+            _postRoutes["/api/architect/deconstruct"] = ArchitectHandler.Deconstruct;
+            _postRoutes["/api/architect/cancel"] = ArchitectHandler.Cancel;
+            _postRoutes["/api/architect/mine"] = ArchitectHandler.Mine;
         }
 
         public void Start()

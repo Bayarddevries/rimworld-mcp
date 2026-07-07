@@ -97,8 +97,99 @@ namespace RimworldMcp
                     return HttpServer.JsonSuccess($"{{\"message\":\"Arresting {target.Name.ToStringShort}\"}}");
                 }
 
+                case "go_to":
+                case "goto":
+                {
+                    string xStr = GetValue(data, "x");
+                    string zStr = GetValue(data, "z");
+                    if (xStr == null || zStr == null || !int.TryParse(xStr, out int x) || !int.TryParse(zStr, out int z))
+                        return HttpServer.JsonError("Missing or invalid fields: x, z");
+                    var cell = new IntVec3(x, 0, z);
+                    if (!cell.InBounds(Find.CurrentMap))
+                        return HttpServer.JsonError($"Position ({x},{z}) out of bounds");
+                    var job = JobMaker.MakeJob(JobDefOf.Goto, cell);
+                    pawn.jobs.StartJob(job, JobCondition.InterruptForced);
+                    return HttpServer.JsonSuccess($"{{\"message\":\"{pawn.Name.ToStringShort} moving to ({x},{z})\"}}");
+                }
+
+                case "hunt_animal":
+                case "hunt":
+                {
+                    if (targetId == null)
+                        return HttpServer.JsonError("Missing field: target (animal id or name)");
+                    var animal = Find.CurrentMap.mapPawns.AllPawns
+                        .FirstOrDefault(p => p.RaceProps?.Animal == true && p.Faction != Faction.OfPlayer &&
+                            (p.thingIDNumber.ToString() == targetId || p.LabelCap.ToLower().Contains(targetId.ToLower())));
+                    if (animal == null)
+                        return HttpServer.JsonError($"No wild animal found: {targetId}");
+                    var huntJob = JobMaker.MakeJob(JobDefOf.Hunt, animal);
+                    pawn.jobs.StartJob(huntJob, JobCondition.InterruptForced);
+                    return HttpServer.JsonSuccess($"{{\"message\":\"{pawn.Name.ToStringShort} hunting {animal.LabelCap}\"}}");
+                }
+
+                case "fire_at":
+                case "attack":
+                {
+                    if (targetId == null)
+                        return HttpServer.JsonError("Missing field: target (pawn id or name)");
+                    var target = Find.CurrentMap.mapPawns.AllPawns
+                        .FirstOrDefault(p => (p.thingIDNumber.ToString() == targetId || p.LabelCap.ToLower().Contains(targetId.ToLower()))
+                                          && p.Faction != Faction.OfPlayer && !p.Dead && !p.Downed);
+                    if (target == null)
+                        return HttpServer.JsonError($"No valid target found: {targetId}");
+                    // Draft first for ranged attacks
+                    if (!pawn.Drafted)
+                        pawn.drafter.Drafted = true;
+                    var attackJob = JobMaker.MakeJob(JobDefOf.AttackMelee, target);
+                    pawn.jobs.StartJob(attackJob, JobCondition.InterruptForced);
+                    return HttpServer.JsonSuccess($"{{\"message\":\"{pawn.Name.ToStringShort} attacking {target.LabelCap}\"}}");
+                }
+
+                case "cut_plant":
+                case "chop":
+                {
+                    if (targetId == null)
+                        return HttpServer.JsonError("Missing field: target (tree id)");
+                    var plant = Find.CurrentMap.spawnedThings
+                        .FirstOrDefault(t => t.thingIDNumber.ToString() == targetId || t.LabelCap.ToLower().Contains(targetId.ToLower()));
+                    if (plant == null || !(plant is Plant))
+                        return HttpServer.JsonError($"No plant found: {targetId}");
+                    var chopJob = JobMaker.MakeJob(JobDefOf.CutPlant, plant);
+                    pawn.jobs.StartJob(chopJob, JobCondition.InterruptForced);
+                    return HttpServer.JsonSuccess($"{{\"message\":\"{pawn.Name.ToStringShort} cutting {plant.LabelCap}\"}}");
+                }
+
+                case "mine":
+                {
+                    string xStr = GetValue(data, "x");
+                    string zStr = GetValue(data, "z");
+                    if (xStr == null || zStr == null || !int.TryParse(xStr, out int x) || !int.TryParse(zStr, out int z))
+                        return HttpServer.JsonError("Missing or invalid fields: x, z");
+                    var cell = new IntVec3(x, 0, z);
+                    if (!cell.InBounds(Find.CurrentMap))
+                        return HttpServer.JsonError($"Position ({x},{z}) out of bounds");
+                    var rock = Find.CurrentMap.thingGrid.ThingsListAt(cell)?.FirstOrDefault();
+                    if (rock == null || !rock.def.building?.isResourceRock == true)
+                        return HttpServer.JsonError($"No mineable rock at ({x},{z})");
+                    var mineJob = JobMaker.MakeJob(JobDefOf.Mine, rock);
+                    pawn.jobs.StartJob(mineJob, JobCondition.InterruptForced);
+                    return HttpServer.JsonSuccess($"{{\"message\":\"{pawn.Name.ToStringShort} mining at ({x},{z})\"}}");
+                }
+
+                case "draft":
+                {
+                    pawn.drafter.Drafted = true;
+                    return HttpServer.JsonSuccess($"{{\"message\":\"{pawn.Name.ToStringShort} drafted\"}}");
+                }
+
+                case "undraft":
+                {
+                    pawn.drafter.Drafted = false;
+                    return HttpServer.JsonSuccess($"{{\"message\":\"{pawn.Name.ToStringShort} undrafted\"}}");
+                }
+
                 default:
-                    return HttpServer.JsonError($"Unknown command: {command}. Try: prioritize_haul, prioritize_build, tend, rescue, arrest");
+                    return HttpServer.JsonError($"Unknown command: {command}. Try: prioritize_haul, prioritize_build, tend, rescue, arrest, go_to, hunt, attack, chop, mine, draft, undraft");
             }
         }
 
