@@ -66,6 +66,7 @@ namespace RimworldMcp
             _getRoutes["/api/animals/wild"] = AnimalsHandler.Wildlife;
             _getRoutes["/api/animals/"] = AnimalsHandler.Detail;
             _getRoutes["/api/factions"] = FactionsHandler.List;
+            _getRoutes["/api/schedule"] = ScheduleHandler.Get;
             _getRoutes["/api/architect/structures"] = ArchitectHandler.Structures;
             _getRoutes["/api/architect/blueprints"] = ArchitectHandler.Blueprints;
             _getRoutes["/api/caravans"] = CaravanHandler.List;
@@ -115,6 +116,8 @@ namespace RimworldMcp
             _postRoutes["/api/animals/slaughter"] = AnimalsHandler.Slaughter;
             _postRoutes["/api/animals/hunt"] = AnimalsHandler.Hunt;
             _postRoutes["/api/factions/gift"] = FactionsHandler.Gift;
+            _postRoutes["/api/schedule"] = ScheduleHandler.Set;
+            _postRoutes["/api/schedule/all"] = ScheduleHandler.SetAllHours;
             _postRoutes["/api/architect/build"] = ArchitectHandler.Build;
             _postRoutes["/api/architect/deconstruct"] = ArchitectHandler.Deconstruct;
             _postRoutes["/api/architect/cancel"] = ArchitectHandler.Cancel;
