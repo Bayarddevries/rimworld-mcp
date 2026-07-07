@@ -64,6 +64,10 @@ namespace RimworldMcp
             _getRoutes["/api/areas/pawns"] = AreasHandler.Pawns;
             _getRoutes["/api/pawns/stats/"] = PawnStatsHandler.Stats;
             _getRoutes["/api/pawns/gear/"] = PawnStatsHandler.Gear;
+            _getRoutes["/api/pawns/relations/"] = RelationsHandler.PawnRelations;
+            _getRoutes["/api/social"] = RelationsHandler.SocialOverview;
+            _getRoutes["/api/recipes"] = RecipesHandler.List;
+            _getRoutes["/api/weather"] = WeatherHandler.Get;
             _getRoutes["/api/prisoners"] = PrisonersHandler.List;
             _getRoutes["/api/prisoners/"] = PrisonersHandler.Detail;
             _getRoutes["/api/zones"] = ZonesHandler.List;
@@ -130,6 +134,8 @@ namespace RimworldMcp
             _postRoutes["/api/growing/harvest"] = GrowingHandler.Harvest;
             _postRoutes["/api/growing/sow"] = GrowingHandler.Sow;
             _postRoutes["/api/growing/priority"] = GrowingHandler.SetAllowSow;
+            _postRoutes["/api/weather"] = WeatherHandler.Set;
+            _postRoutes["/api/weather/event"] = WeatherHandler.SetEvent;
             _postRoutes["/api/architect/build"] = ArchitectHandler.Build;
             _postRoutes["/api/architect/deconstruct"] = ArchitectHandler.Deconstruct;
             _postRoutes["/api/architect/cancel"] = ArchitectHandler.Cancel;
